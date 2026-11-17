@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FCF Margin Estimator (7 BigTech)</title>
+
+  <!-- UnoCSS Runtime CDN & Reset -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@unocss/reset/tailwind.min.css">
+  <script>
+    window.__unocss = {
+      theme: {
+        colors: {
+          paper: {
+            bg: 'var(--paper-bg)',
+            card: 'var(--paper-card)',
+            fg: 'var(--paper-fg)',
+            muted: 'var(--paper-muted)',
+            border: 'var(--paper-border)',
+            borderDark: 'var(--paper-border-dark)',
+            accent: '#ef4444',
+            blue: '#0284c7',
+            amber: '#d97706',
+            emerald: '#059669'
+          }
+        },
+        fontFamily: {
+          sans: "'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+          mono: "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace"
+        }
+      }
+    }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/@unocss/runtime"></script>
+
+  <!-- Google Fonts: Noto Sans KR & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;600;700;900&display=swap"
+    rel="stylesheet">
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- KaTeX for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\\(', right: '\\)', display: false}]});"></script>
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <style>
+    :root {
+      --paper-bg: #fbfbf9;
+      --paper-card: #ffffff;
+      --paper-fg: #1c1c1a;
+      --paper-muted: #666664;
+      --paper-border: #e5e4df;
+      --paper-border-dark: #1c1c1a;
+      --grid-line: rgba(0, 0, 0, 0.035);
+      color-scheme: light;
+    }
+
+    html.dark {
+      --paper-bg: #121211;
+      --paper-card: #1c1c1a;
+      --paper-fg: #f4f4f0;
+      --paper-muted: #9c9b95;
+      --paper-border: #2c2c28;
+      --paper-border-dark: #f4f4f0;
+      --grid-line: rgba(255, 255, 255, 0.04);
+      color-scheme: dark;
+    }
+
+    header {
+      background-color: var(--paper-bg) !important;
+    }
+
+    #auditTableFoot {
+      background-color: color-mix(in srgb, var(--paper-fg) 30%, transparent);
+    }
+
+    #auditTableBody tr {
+      transition: background-color 0.15s ease;
+    }
+
+    #auditTableBody tr:hover {
+      background-color: color-mix(in srgb, var(--paper-fg) 10%, transparent) !important;
+    }
+
+    body {
+      background-color: var(--paper-bg);
+      color: var(--paper-fg);
+      font-family: 'Noto Sans KR', sans-serif;
+      letter-spacing: -0.012em;
+      transition: background-color 0.15s ease, color 0.15s ease;
+    }
+
+    .font-mono-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .bg-grid-paper {
+      background-image:
+        linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+
+    /* Range slider custom styling */
+    input[type=range] {
+      accent-color: #ef4444;
+    }
+
+    /* Card styling */
+    .card-box {
+      background-color: var(--paper-card);
+      border: 1px solid var(--paper-border);
+    }
+  </style>
+</head>
+
+<body class="min-h-screen flex flex-col bg-grid-paper selection:bg-red-100 selection:text-red-900">
+
+  <!-- Editorial Top Bar -->
+  <header class="border-b border-paper-border bg-paper-bg/90 backdrop-blur-md sticky top-0 z-40">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <span class="text-xs font-mono font-bold px-2 py-0.5 bg-paper-fg text-paper-bg rounded-none">
+          삼순동순
+        </span>
+        <span class="text-xs font-mono text-paper-muted hidden sm:inline">
+          Corrected FCF Margin Estimator
+        </span>
+      </div>
+
+      <div class="flex items-center gap-2 sm:gap-3 text-xs font-mono">
+        <span
+          class="inline-flex items-center gap-1.5 px-2 py-0.5 border border-paper-border text-paper-muted text-[11px] rounded">
+          <span class="w-1.5 h-1.5 rounded-full bg-paper-emerald"></span>
+          <span>Updated: <strong id="lblUpdatedAt" class="text-paper-fg font-semibold">2026-10-17</strong></span>
+        </span>
+        <label for="jsonFileInput"
+          class="cursor-pointer border border-paper-border hover:border-paper-fg px-2 py-1 rounded text-paper-fg text-[11px] transition-colors inline-flex items-center gap-1 font-mono"
+          title="최신 data.json 파일 직접 불러오기">
+          <i data-lucide="file-up" class="w-3.5 h-3.5"></i>
+          <span class="hidden sm:inline">JSON 로드</span>
+        </label>
+        <input type="file" id="jsonFileInput" accept=".json" class="hidden">
+        <button id="btnThemeToggle"
+          class="border border-paper-border hover:border-paper-fg px-2.5 py-1 rounded text-paper-fg text-[11px] transition-colors inline-flex items-center gap-1.5 cursor-pointer font-mono"
+          aria-label="Toggle theme">
+          <i data-lucide="moon" id="themeIcon" class="w-3.5 h-3.5"></i>
+          <span id="themeText">Dark</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Local File Notice Banner (Shown only if fetch fails and no cache) -->
+  <div id="fileNoticeBanner"
+    class="hidden bg-amber-500/10 border-b border-amber-500/30 text-amber-800 dark:text-amber-200 px-4 py-2.5 text-xs font-mono">
+    <div class="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-2">
+        <i data-lucide="info" class="w-4 h-4 text-amber-600 dark:text-amber-400"></i>
+        <span>로컬 파일(file://) 보안 정책으로 data.json을 직접 읽지 못했습니다. 최신 분석을 위해 data.json을 로드하십시오.</span>
+      </div>
+      <label for="jsonFileInput"
+        class="cursor-pointer px-2.5 py-1 bg-amber-600 text-white hover:bg-amber-700 rounded text-[11px] font-semibold transition-colors">
+        data.json 파일 선택
+      </label>
+    </div>
+  </div>
+
+  <!-- Hero Section -->
+  <section class="max-w-6xl mx-auto px-4 pt-10 pb-6 w-full">
+    <div class="border-b-2 border-paper-fg pb-6">
+      <div class="flex flex-wrap items-center gap-2 mb-2 text-xs font-mono text-paper-muted uppercase tracking-wider">
+        <span>Accounting Illusion 발라내기</span>
+        <span>•</span>
+        <span class="text-paper-accent font-semibold">ASC 606 & ASC 842 Correction</span>
+      </div>
+
+      <h1 class="text-2xl sm:text-4xl font-extrabold tracking-tight text-paper-fg leading-tight mb-3">
+        7개 빅테크들의 FCF/Revenue를 제대로 추정해보기
+      </h1>
+
+      <p class="text-sm sm:text-base text-paper-muted leading-relaxed max-w-4xl">
+        기업의 표면적 IR과 공시 재무제표에서의 FCF margin은 회계적 왜곡으로 오염되어 있다.
+        주식기준보상, 금융리스 원리금 상환, 감가상각 내용연수 연장,
+        순환금융 매출 등을 발라내어 기업의 순수한 현금창출 체력을 검증해 본다.
+      </p>
+
+      <!-- LaTeX Formula Callout -->
+      <div class="mt-4 p-4 border border-paper-border bg-paper-card text-xs sm:text-sm font-mono overflow-x-auto">
+        <div class="text-[11px] text-paper-muted mb-1 uppercase font-bold tracking-wider">조정 산식</div>
+        <div class="flex flex-col gap-2">
+          <div>$$\text{Corrected FCF} = \text{CFO} - \text{CapEx} - \text{SBC} - \Delta
+            \text{Dep}_{\text{server}} - \text{Finance Lease}$$</div>
+          <div>$$\text{Corrected Revenue} = \text{Direct Rev} + \text{Net Partner Distribution} - \text{Circular Rev}$$
+          </div>
+          <div>$$\text{Corrected FCF Margin} = \frac{\text{Corrected FCF}}{\text{Corrected Revenue}}$$</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Content Layout -->
+  <main class="max-w-6xl mx-auto px-4 pb-16 w-full flex flex-col gap-8">
+
+    <!-- Ticker & FY Selection Tabs -->
+    <div class="card-box p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div>
+        <div class="text-xs font-mono text-paper-muted mb-1.5 uppercase font-semibold">1. 대상 빅테크 선택 (7 Big Tech)</div>
+        <div class="flex flex-wrap gap-1.5" id="tickerTabs">
+          <!-- Ticker Buttons rendered by JS -->
+        </div>
+      </div>
+
+      <div class="border-t md:border-t-0 md:border-l border-paper-border pt-3 md:pt-0 md:pl-4 w-full md:w-auto">
+        <div class="text-xs font-mono text-paper-muted mb-1.5 uppercase font-semibold">2. 공시 회계연도 (10-K FY)</div>
+        <div class="flex flex-wrap gap-1.5" id="fyTabs">
+          <!-- FY Buttons rendered by JS -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Core Metrics Comparison Grid -->
+    <section>
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-mono font-bold uppercase tracking-wider text-paper-fg flex items-center gap-2">
+          <i data-lucide="calculator" class="w-4 h-4 text-paper-accent"></i>
+          비교: 보고된 지표 vs 조정된 지표
+        </h2>
+        <span id="selectedCompanyInfo" class="text-xs font-mono text-paper-muted"></span>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- FCF Margin Card -->
+        <div class="card-box p-4 border-t-4 border-t-paper-accent">
+          <div class="text-[11px] font-mono text-paper-muted mb-1 font-semibold tracking-wider">FCF MARGIN
+          </div>
+          <div class="flex items-baseline justify-between mt-2">
+            <div>
+              <div class="text-[11px] text-paper-muted font-mono">공시 FCF Margin</div>
+              <div id="mReportedMargin" class="text-sm font-medium font-mono-num text-paper-muted">--%</div>
+            </div>
+            <div class="text-right">
+              <div class="text-[11px] text-paper-accent font-mono font-semibold">조정 마진</div>
+              <div id="mCorrectedMargin" class="text-lg font-bold font-mono-num text-paper-accent">--%</div>
+            </div>
+          </div>
+          <div class="mt-3 pt-2.5 border-t border-paper-border text-xs font-mono flex justify-between items-center">
+            <span class="text-paper-muted text-[11px]">마진 축소폭:</span>
+            <span id="mMarginGap" class="font-semibold font-mono-num text-paper-accent">-- bp</span>
+          </div>
+        </div>
+
+        <!-- FCF Absolute Card -->
+        <div class="card-box p-4 border-t-4 border-t-paper-fg">
+          <div class="text-[11px] font-mono text-paper-muted mb-1 font-semibold tracking-wider">FREE CASH FLOW
+          </div>
+          <div class="flex items-baseline justify-between mt-2">
+            <div>
+              <div class="text-[11px] text-paper-muted font-mono">공시 FCF</div>
+              <div id="mReportedFcf" class="text-sm font-medium font-mono-num text-paper-muted">$-- B</div>
+            </div>
+            <div class="text-right">
+              <div class="text-[11px] text-paper-fg font-mono font-semibold">조정 FCF</div>
+              <div id="mCorrectedFcf" class="text-lg font-bold font-mono-num text-paper-fg">$-- B</div>
+            </div>
+          </div>
+          <div class="mt-3 pt-2.5 border-t border-paper-border text-xs font-mono flex justify-between items-center">
+            <span class="text-paper-muted text-[11px]">차감 총액:</span>
+            <span id="mFcfDeduction" class="font-semibold font-mono-num text-paper-accent">-$-- B</span>
+          </div>
+        </div>
+
+        <!-- Revenue Card -->
+        <div class="card-box p-4 border-t-4 border-t-paper-blue">
+          <div class="text-[11px] font-mono text-paper-muted mb-1 font-semibold tracking-wider">REVENUE
+          </div>
+          <div class="flex items-baseline justify-between mt-2">
+            <div>
+              <div class="text-[11px] text-paper-muted font-mono">공시 매출액</div>
+              <div id="mReportedRev" class="text-sm font-medium font-mono-num text-paper-muted">$-- B</div>
+            </div>
+            <div class="text-right">
+              <div class="text-[11px] text-paper-blue font-mono font-semibold">조정 매출</div>
+              <div id="mCorrectedRev" class="text-lg font-bold font-mono-num text-paper-fg">$-- B</div>
+            </div>
+          </div>
+          <div class="mt-3 pt-2.5 border-t border-paper-border text-xs font-mono flex justify-between items-center">
+            <span class="text-paper-muted text-[11px]">순환/정산 감액:</span>
+            <span id="mRevHaircut" class="font-semibold font-mono-num text-paper-blue">-$-- B</span>
+          </div>
+        </div>
+
+        <!-- Useful Life Haircut Card -->
+        <div class="card-box p-4 border-t-4 border-t-paper-amber">
+          <div class="text-[11px] font-mono text-paper-muted mb-1 font-semibold tracking-wider">SERVER DEPRECIATION GAP
+          </div>
+          <div class="flex items-baseline justify-between mt-2">
+            <div>
+              <div class="text-[11px] text-paper-muted font-mono">추가 상각비용</div>
+              <div id="mServerDepGap" class="text-lg font-bold font-mono-num text-paper-amber">+$-- B</div>
+            </div>
+            <div class="text-right">
+              <div class="text-[11px] text-paper-muted font-mono">서버 장부가 (추정)</div>
+              <div id="mServerPpe" class="text-sm font-medium font-mono-num text-paper-fg">$-- B</div>
+            </div>
+          </div>
+          <div class="mt-3 pt-2.5 border-t border-paper-border text-xs font-mono flex justify-between items-center">
+            <span class="text-paper-muted text-[11px]">반영 기준:</span>
+            <span class="font-semibold font-mono-num text-paper-amber">3년 진부화</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Simulation Sliders & Interactive Parameters -->
+    <section class="card-box p-6">
+      <div
+        class="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-4 border-b border-paper-border gap-2">
+        <div>
+          <h2 class="text-sm font-mono font-bold uppercase tracking-wider text-paper-fg flex items-center gap-2">
+            <i data-lucide="sliders" class="w-4 h-4 text-paper-accent"></i>
+            회계적 왜곡 모수 민감도 분석
+          </h2>
+          <p class="text-xs text-paper-muted mt-0.5">슬라이더를 조작하면 상단 지표 및 하단 차트가 재계산된다.</p>
+        </div>
+        <button id="btnResetParams"
+          class="border border-paper-border hover:border-paper-fg px-3 py-1 rounded text-xs font-mono text-paper-fg transition-colors flex items-center gap-1">
+          <i data-lucide="rotate-ccw" class="w-3 h-3"></i>
+          기본값 복원
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-6 text-xs font-mono">
+        <!-- Slider 1: Adjusted Useful Life -->
+        <div class="space-y-2">
+          <div class="flex justify-between items-center">
+            <span class="font-semibold text-paper-fg">실질 서버 내용연수</span>
+            <span id="valUsefulLife" class="font-mono-num font-bold text-paper-accent">3.0년</span>
+          </div>
+          <input type="range" id="rngUsefulLife" min="1.5" max="6.0" step="0.5" value="3.0"
+            class="w-full cursor-pointer">
+          <div class="flex justify-between text-[10px] text-paper-muted">
+            <span>1.5년 (극보수적)</span>
+            <span id="labelRepUsefulLife">장부공시: 6.0년</span>
+            <span>6.0년 (낙관적)</span>
+          </div>
+        </div>
+
+        <!-- Slider 2: Server Share of PPE -->
+        <div class="space-y-2">
+          <div class="flex justify-between items-center">
+            <span class="font-semibold text-paper-fg">서버/장비 자산 비중 (% of PPE)</span>
+            <span id="valServerRatio" class="font-mono-num font-bold text-paper-accent">65%</span>
+          </div>
+          <input type="range" id="rngServerRatio" min="20" max="90" step="5" value="65" class="w-full cursor-pointer">
+          <div class="flex justify-between text-[10px] text-paper-muted">
+            <span>20% (설비중심)</span>
+            <span>50%</span>
+            <span>90% (클라우드/AI)</span>
+          </div>
+        </div>
+
+        <!-- Slider 3: Circular Financing Rate -->
+        <div class="space-y-2">
+          <div class="flex justify-between items-center">
+            <span class="font-semibold text-paper-fg">순환금융 크레딧 매출 차감율</span>
+            <span id="valCircularRate" class="font-mono-num font-bold text-paper-accent">3.0%</span>
+          </div>
+          <input type="range" id="rngCircularRate" min="0" max="15" step="0.5" value="3.0"
+            class="w-full cursor-pointer">
+          <div class="flex justify-between text-[10px] text-paper-muted">
+            <span>0% (차감없음)</span>
+            <span>5%</span>
+            <span>15% (스타트업 집중)</span>
+          </div>
+        </div>
+
+        <!-- Slider 4: Marketplace Gross & Take Rate -->
+        <div class="space-y-2">
+          <div class="flex justify-between items-center">
+            <span class="font-semibold text-paper-fg">마켓플레이스 플랫폼 수수료율</span>
+            <span id="valTakeRate" class="font-mono-num font-bold text-paper-blue">20%</span>
+          </div>
+          <input type="range" id="rngTakeRate" min="10" max="35" step="1" value="20" class="w-full cursor-pointer">
+          <div class="flex justify-between text-[10px] text-paper-muted">
+            <span>10% (호스팅 전용)</span>
+            <span>20% (표준 정산)</span>
+            <span>35% (앱스토어형)</span>
+          </div>
+        </div>
+
+        <!-- Slider 5: SBC Haircut % -->
+        <div class="space-y-2">
+          <div class="flex justify-between items-center">
+            <span class="font-semibold text-paper-fg">주식기준보상(SBC) 실질 현금성 차감율</span>
+            <span id="valSbcHaircut" class="font-mono-num font-bold text-paper-accent">100%</span>
+          </div>
+          <input type="range" id="rngSbcHaircut" min="0" max="100" step="10" value="100" class="w-full cursor-pointer">
+          <div class="flex justify-between text-[10px] text-paper-muted">
+            <span>0% (IR 기준 비현금)</span>
+            <span>50%</span>
+            <span>100% (주주희석 전액반영)</span>
+          </div>
+        </div>
+
+        <!-- Slider 6: Lease Haircut % -->
+        <div class="space-y-2">
+          <div class="flex justify-between items-center">
+            <span class="font-semibold text-paper-fg">금융리스 원리금 상환 차감율</span>
+            <span id="valLeaseHaircut" class="font-mono-num font-bold text-paper-accent">100%</span>
+          </div>
+          <input type="range" id="rngLeaseHaircut" min="0" max="100" step="10" value="100"
+            class="w-full cursor-pointer">
+          <div class="flex justify-between text-[10px] text-paper-muted">
+            <span>0% (CapEx 외 배제)</span>
+            <span>50%</span>
+            <span>100% (실질 하드웨어 조달비)</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Visual Charts Grid (Chart.js) -->
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- Chart 1: 3-Year Trend Comparison -->
+      <div class="card-box p-5 flex flex-col">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-xs font-mono font-bold uppercase tracking-wider text-paper-fg flex items-center gap-1.5">
+            <i data-lucide="bar-chart-2" class="w-4 h-4 text-paper-blue"></i>
+            최근 3개년 FCF 및 FCF Margin 추이 (Dual Axis)
+          </h3>
+          <span class="text-[11px] font-mono text-paper-muted">10-K Historical</span>
+        </div>
+        <div class="relative flex-1 min-h-[300px]">
+          <canvas id="chartHistory"></canvas>
+        </div>
+      </div>
+
+      <!-- Chart 2: Cash Flow Waterfall Breakdown -->
+      <div class="card-box p-5 flex flex-col">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-xs font-mono font-bold uppercase tracking-wider text-paper-fg flex items-center gap-1.5">
+            <i data-lucide="git-commit" class="w-4 h-4 text-paper-accent"></i>
+            공시 CFO → 조정 FCF
+          </h3>
+          <span class="text-[11px] font-mono text-paper-muted">Deduction Waterfall</span>
+        </div>
+        <div class="relative flex-1 min-h-[300px]">
+          <canvas id="chartWaterfall"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- Audit Trail & Accounting XBRL Tags Grid -->
+    <section class="card-box p-6">
+      <div class="flex items-center justify-between mb-4 pb-3 border-b border-paper-border">
+        <div>
+          <h3 class="text-sm font-mono font-bold uppercase tracking-wider text-paper-fg flex items-center gap-2">
+            <i data-lucide="file-check-2" class="w-4 h-4 text-paper-emerald"></i>
+            SEC EDGAR 10-K 공시 원본 계정 추적 (Audit Trail)
+          </h3>
+          <p class="text-xs text-paper-muted mt-0.5">US-GAAP XBRL Tag Mapping</p>
+        </div>
+        <span class="text-xs font-mono px-2 py-0.5 border border-paper-border rounded text-paper-muted">
+          GAAP Verified
+        </span>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs font-mono">
+          <thead>
+            <tr class="border-b-2 border-paper-fg text-paper-fg">
+              <th class="py-2.5 pr-3">항목</th>
+              <th class="py-2.5 pr-3">US-GAAP XBRL Tag</th>
+              <th class="py-2.5 pr-3 text-right">공시 원본</th>
+              <th class="py-2.5 pr-3 text-center">조정분</th>
+              <th class="py-2.5 pr-3 text-center">조정 반영치</th>
+              <th class="py-2.5 pr-3 text-center">회계적 조정 근거</th>
+            </tr>
+          </thead>
+          <tbody id="auditTableBody" class="divide-y divide-paper-border">
+            <!-- Table rows populated dynamically -->
+          </tbody>
+          <tfoot id="auditTableFoot" class="border-t-2 border-paper-fg bg-paper-fg/50 font-semibold">
+            <!-- Summary row populated dynamically -->
+          </tfoot>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Editorial Footer -->
+  <footer class="border-t border-paper-border py-8 mt-12 bg-paper-bg text-center text-xs text-paper-muted font-mono">
+    <div class="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+      <span>Corrected FCF Margin Estimator • SEC EDGAR 10-K Dissection</span>
+      <span>100% Client-Side Engine • Zero-Build Flat Architecture</span>
+    </div>
+  </footer>
+
+  <!-- Application Logic & Calculations -->
+  <script>
+    // State management & Data Store
+    let PRESETS = {};
+    let datasetMeta = {
+      updatedAt: '2026-10-17',
+      source: 'SEC EDGAR 10-K'
+    };
+    let currentTicker = 'MSFT';
+    let currentFy = '2026';
+    let isInitialized = false;
+
+    // Chart instances
+    let historyChart = null;
+    let waterfallChart = null;
+
+    // Simulation params state
+    const params = {
+      usefulLife: 3.0,
+      serverRatio: 65,
+      circularRate: 3.0,
+      takeRate: 20,
+      sbcHaircut: 100,
+      leaseHaircut: 100
+    };
+
+    async function loadData() {
+      // 1. Try loading cached data from localStorage
+      const cached = localStorage.getItem('fcf_margin_data');
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          applyLoadedData(parsed, false);
+        } catch (e) {
+          console.warn('Cache parse error', e);
+        }
+      }
+
+      // 2. Fetch data.json from server / Cloudflare Pages Edge
+      try {
+        const res = await fetch('./data.json', { cache: 'no-cache' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        applyLoadedData(data, true);
+        hideFilePromptBanner();
+        return true;
+      } catch (err) {
+        console.warn('Network fetch for data.json failed (likely local file://):', err.message);
+        if (Object.keys(PRESETS).length > 0) {
+          return true;
+        }
+        showFilePromptBanner();
+        return false;
+      }
+    }
+
+    function applyLoadedData(data, saveCache = true) {
+      if (!data) return;
+      if (data.companies) {
+        PRESETS = data.companies;
+        datasetMeta.updatedAt = data.updatedAt || 'Unknown';
+        datasetMeta.source = data.source || 'SEC EDGAR';
+      } else {
+        PRESETS = data;
+      }
+
+      if (saveCache) {
+        try {
+          localStorage.setItem('fcf_margin_data', JSON.stringify(data));
+        } catch (e) { }
+      }
+
+      updateStatusBadge();
+
+      // Ensure default ticker and fy exist in loaded data
+      const availableTickers = Object.keys(PRESETS);
+      if (availableTickers.length > 0) {
+        if (!availableTickers.includes(currentTicker)) {
+          currentTicker = availableTickers[0];
+        }
+        const comp = PRESETS[currentTicker];
+        if (comp && comp.years) {
+          const fys = Object.keys(comp.years).sort();
+          if (!fys.includes(currentFy)) {
+            currentFy = fys[fys.length - 1];
+          }
+        }
+      }
+
+      if (!isInitialized) {
+        isInitialized = true;
+        initUI();
+      } else {
+        renderTickerTabs();
+        updateFyTabs();
+        recalculateAndRender();
+      }
+    }
+
+    function updateStatusBadge() {
+      const lbl = document.getElementById('lblUpdatedAt');
+      if (lbl && datasetMeta.updatedAt) {
+        lbl.textContent = datasetMeta.updatedAt;
+      }
+    }
+
+    function showFilePromptBanner() {
+      const banner = document.getElementById('fileNoticeBanner');
+      if (banner) banner.classList.remove('hidden');
+      const lbl = document.getElementById('lblUpdatedAt');
+      if (lbl) lbl.textContent = '불러오기 필요';
+    }
+
+    function hideFilePromptBanner() {
+      const banner = document.getElementById('fileNoticeBanner');
+      if (banner) banner.classList.add('hidden');
+    }
+
+    function setupFileUploader() {
+      const fileInput = document.getElementById('jsonFileInput');
+      if (!fileInput) return;
+      fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          try {
+            const data = JSON.parse(evt.target.result);
+            applyLoadedData(data, true);
+            hideFilePromptBanner();
+          } catch (err) {
+            alert('올바른 data.json 파일 형식이 아닙니다: ' + err.message);
+          }
+        };
+        reader.readAsText(file);
+      });
+    }
+
+    function initUI() {
+      renderTickerTabs();
+      updateFyTabs();
+      syncSliderInputs();
+      attachListeners();
+      recalculateAndRender();
+      lucide.createIcons();
+    }
+
+    function renderTickerTabs() {
+      const container = document.getElementById('tickerTabs');
+      container.innerHTML = '';
+      const tickers = Object.keys(PRESETS);
+
+      tickers.forEach(t => {
+        const btn = document.createElement('button');
+        const isSel = (t === currentTicker);
+        btn.className = `px-3 py-1.5 rounded font-mono text-xs transition-all font-semibold flex items-center gap-1.5 cursor-pointer ${isSel
+          ? 'bg-paper-fg text-paper-bg shadow-sm'
+          : 'border border-paper-border text-paper-muted hover:border-paper-fg hover:text-paper-fg'
+          }`;
+        btn.textContent = t;
+        btn.onclick = () => selectTicker(t);
+        container.appendChild(btn);
+      });
+    }
+
+    function selectTicker(t) {
+      currentTicker = t;
+      const comp = PRESETS[t];
+      // Reset default params for this company
+      params.serverRatio = Math.round((comp.serverRatio || 0.6) * 100);
+      params.usefulLife = 3.0;
+      params.circularRate = 3.0;
+      params.takeRate = 20;
+      params.sbcHaircut = 100;
+      params.leaseHaircut = 100;
+
+      const fys = Object.keys(comp.years).sort((a, b) => b - a);
+      currentFy = fys[0];
+
+      renderTickerTabs();
+      updateFyTabs();
+      syncSliderInputs();
+      recalculateAndRender();
+    }
+
+    function updateFyTabs() {
+      const container = document.getElementById('fyTabs');
+      container.innerHTML = '';
+      const comp = PRESETS[currentTicker];
+      const fys = Object.keys(comp.years).sort((a, b) => b - a);
+
+      fys.forEach(fy => {
+        const btn = document.createElement('button');
+        const isSel = (fy === currentFy);
+        btn.className = `px-3 py-1 rounded font-mono text-xs transition-all cursor-pointer ${isSel
+          ? 'bg-paper-accent text-white font-bold'
+          : 'border border-paper-border text-paper-muted hover:border-paper-fg hover:text-paper-fg'
+          }`;
+        btn.textContent = `FY${fy}`;
+        btn.onclick = () => {
+          currentFy = fy;
+          updateFyTabs();
+          recalculateAndRender();
+        };
+        container.appendChild(btn);
+      });
+    }
+
+    function syncSliderInputs() {
+      const comp = PRESETS[currentTicker];
+      document.getElementById('rngUsefulLife').value = params.usefulLife;
+      document.getElementById('valUsefulLife').textContent = `${params.usefulLife.toFixed(1)}년`;
+      document.getElementById('labelRepUsefulLife').textContent = `공시수명: ${(comp.usefulLifeRep || 5).toFixed(1)}년`;
+
+      document.getElementById('rngServerRatio').value = params.serverRatio;
+      document.getElementById('valServerRatio').textContent = `${params.serverRatio}%`;
+
+      document.getElementById('rngCircularRate').value = params.circularRate;
+      document.getElementById('valCircularRate').textContent = `${params.circularRate.toFixed(1)}%`;
+
+      document.getElementById('rngTakeRate').value = params.takeRate;
+      document.getElementById('valTakeRate').textContent = `${params.takeRate}%`;
+
+      document.getElementById('rngSbcHaircut').value = params.sbcHaircut;
+      document.getElementById('valSbcHaircut').textContent = `${params.sbcHaircut}%`;
+
+      document.getElementById('rngLeaseHaircut').value = params.leaseHaircut;
+      document.getElementById('valLeaseHaircut').textContent = `${params.leaseHaircut}%`;
+    }
+
+    function attachListeners() {
+      document.getElementById('rngUsefulLife').addEventListener('input', (e) => {
+        params.usefulLife = parseFloat(e.target.value);
+        document.getElementById('valUsefulLife').textContent = `${params.usefulLife.toFixed(1)}년`;
+        recalculateAndRender();
+      });
+
+      document.getElementById('rngServerRatio').addEventListener('input', (e) => {
+        params.serverRatio = parseInt(e.target.value);
+        document.getElementById('valServerRatio').textContent = `${params.serverRatio}%`;
+        recalculateAndRender();
+      });
+
+      document.getElementById('rngCircularRate').addEventListener('input', (e) => {
+        params.circularRate = parseFloat(e.target.value);
+        document.getElementById('valCircularRate').textContent = `${params.circularRate.toFixed(1)}%`;
+        recalculateAndRender();
+      });
+
+      document.getElementById('rngTakeRate').addEventListener('input', (e) => {
+        params.takeRate = parseInt(e.target.value);
+        document.getElementById('valTakeRate').textContent = `${params.takeRate}%`;
+        recalculateAndRender();
+      });
+
+      document.getElementById('rngSbcHaircut').addEventListener('input', (e) => {
+        params.sbcHaircut = parseInt(e.target.value);
+        document.getElementById('valSbcHaircut').textContent = `${params.sbcHaircut}%`;
+        recalculateAndRender();
+      });
+
+      document.getElementById('rngLeaseHaircut').addEventListener('input', (e) => {
+        params.leaseHaircut = parseInt(e.target.value);
+        document.getElementById('valLeaseHaircut').textContent = `${params.leaseHaircut}%`;
+        recalculateAndRender();
+      });
+
+      document.getElementById('btnResetParams').addEventListener('click', () => {
+        const comp = PRESETS[currentTicker];
+        params.serverRatio = Math.round((comp.serverRatio || 0.6) * 100);
+        params.usefulLife = 3.0;
+        params.circularRate = 3.0;
+        params.takeRate = 20;
+        params.sbcHaircut = 100;
+        params.leaseHaircut = 100;
+        syncSliderInputs();
+        recalculateAndRender();
+      });
+    }
+
+    function calculateFcf(comp, fy, customParams) {
+      const data = comp.years[fy];
+      if (!data) return null;
+
+      const p = customParams || params;
+      const repLife = comp.usefulLifeRep || 5.0;
+      const adjLife = p.usefulLife;
+
+      // 1. Reported metrics
+      const reportedFcf = data.cfo - data.capex;
+      const reportedMargin = data.revenue > 0 ? (reportedFcf / data.revenue) * 100 : 0;
+
+      // 2. Server depreciation gap (Delta Dep)
+      const serverRatio = p.serverRatio / 100;
+      const serverPpe = data.ppeNet * serverRatio;
+      let addedDep = 0;
+      if (adjLife < repLife) {
+        addedDep = serverPpe * ((1 / adjLife) - (1 / repLife));
+      }
+
+      // 3. Corrected FCF (Numerator)
+      const sbcDeduction = data.sbc * (p.sbcHaircut / 100);
+      const leaseDeduction = data.leasePayments * (p.leaseHaircut / 100);
+      const rdCapDeduction = data.capitalizedSoftware || 0;
+
+      const correctedFcf = data.cfo - sbcDeduction - leaseDeduction - rdCapDeduction - data.capex - addedDep;
+
+      // 4. Corrected Revenue (Denominator)
+      // Circular rev haircut
+      const circularHaircut = data.revenue * (p.circularRate / 100);
+      // Partner distribution haircut (Gross to Net)
+      const partnerRev = data.revenue * (data.partnerRevRate || 0.12);
+      const partnerHaircut = partnerRev * (1 - (p.takeRate / 100)); // Disallow gross, retain only take-rate net
+      const totalRevHaircut = circularHaircut + (partnerHaircut * 0.5); // conservative 50% discount on marketplace
+
+      const correctedRevenue = Math.max(data.revenue - totalRevHaircut, 1);
+      const correctedMargin = (correctedFcf / correctedRevenue) * 100;
+      const marginGapBp = Math.round((reportedMargin - correctedMargin) * 100);
+
+      return {
+        data,
+        reportedFcf,
+        reportedMargin,
+        correctedFcf,
+        correctedRevenue,
+        correctedMargin,
+        marginGapBp,
+        sbcDeduction,
+        leaseDeduction,
+        addedDep,
+        serverPpe,
+        totalRevHaircut
+      };
+    }
+
+    function formatB(val) {
+      return (val / 1e9).toFixed(2);
+    }
+
+    function recalculateAndRender() {
+      const comp = PRESETS[currentTicker];
+      const res = calculateFcf(comp, currentFy);
+      if (!res) return;
+
+      document.getElementById('selectedCompanyInfo').textContent = `${comp.name} (${comp.ticker}) • CIK ${comp.cik}`;
+
+      // Cards
+      document.getElementById('mReportedMargin').textContent = `${res.reportedMargin.toFixed(1)}%`;
+      document.getElementById('mCorrectedMargin').textContent = `${res.correctedMargin.toFixed(1)}%`;
+      document.getElementById('mMarginGap').textContent = `${res.marginGapBp > 0 ? '-' : '+'}${Math.abs(res.marginGapBp)} bp (${(res.reportedMargin - res.correctedMargin).toFixed(1)}%p)`;
+
+      document.getElementById('mReportedFcf').textContent = `$${formatB(res.reportedFcf)} B`;
+      document.getElementById('mCorrectedFcf').textContent = `$${formatB(res.correctedFcf)} B`;
+      document.getElementById('mFcfDeduction').textContent = `-$${formatB(res.reportedFcf - res.correctedFcf)} B`;
+
+      document.getElementById('mReportedRev').textContent = `$${formatB(res.data.revenue)} B`;
+      document.getElementById('mCorrectedRev').textContent = `$${formatB(res.correctedRevenue)} B`;
+      document.getElementById('mRevHaircut').textContent = `-$${formatB(res.totalRevHaircut)} B`;
+
+      document.getElementById('mServerDepGap').textContent = `+$${formatB(res.addedDep)} B`;
+      document.getElementById('mServerPpe').textContent = `$${formatB(res.serverPpe)} B`;
+
+      renderAuditTable(res, comp);
+      renderCharts(comp);
+    }
+
+    function renderAuditTable(res, comp) {
+      const tbody = document.getElementById('auditTableBody');
+      const tfoot = document.getElementById('auditTableFoot');
+      const d = res.data;
+      const targetComp = comp || PRESETS[currentTicker];
+
+      const items = [
+        {
+          name: '공시 매출액 (Revenue)',
+          tag: d.revenueTag || 'RevenueFromContractWithCustomerExcludingAssessedTax',
+          rawVal: d.revenue,
+          rule: `순환 ${params.circularRate}% + 수수료`,
+          adjVal: res.correctedRevenue,
+          isRev: true,
+          reason: `순환금융 크레딧($-${formatB(d.revenue * (params.circularRate / 100))}B) 및 파트너 총액 인식 거품 제거`
+        },
+        {
+          name: '공시 영업활동현금흐름 (CFO)',
+          tag: d.cfoTag || 'NetCashProvidedByUsedInOperatingActivities',
+          rawVal: d.cfo,
+          rule: '기준 현금유입 (+)',
+          adjVal: d.cfo,
+          isRev: false,
+          reason: '공시 현금흐름표 본문의 영업현금흐름 기준값'
+        },
+        {
+          name: '주식기준보상 (SBC)',
+          tag: d.sbcTag || 'AllocatedShareBasedCompensationExpense',
+          rawVal: d.sbc,
+          rule: `반영률 ${params.sbcHaircut}% (-)`,
+          adjVal: -res.sbcDeduction,
+          isRev: false,
+          reason: '비현금 비용으로 가산되어 CFO를 왜곡시킨 주주가치 희석분 전액 차감'
+        },
+        {
+          name: '금융리스 원금 상환액 (Lease)',
+          tag: d.leaseTag || 'FinanceLeasePrincipalPayments',
+          rawVal: d.leasePayments,
+          rule: `반영률 ${params.leaseHaircut}% (-)`,
+          adjVal: -res.leaseDeduction,
+          isRev: false,
+          reason: '서버/데이터센터 리스로 조달하여 재무활동으로 빠져나간 실질 설비조달비 차감'
+        },
+        {
+          name: '공시 설비투자 (CapEx)',
+          tag: d.capexTag || 'PaymentsToAcquirePropertyPlantAndEquipment',
+          rawVal: d.capex,
+          rule: '현금투자 100% (-)',
+          adjVal: -d.capex,
+          isRev: false,
+          reason: '유형자산 및 설비 취득에 집행된 현금성 투자액'
+        },
+        {
+          name: '서버 내용연수 추가상각 (ΔDep)',
+          tag: 'UsefulLifeHaircut (ASC 360)',
+          rawVal: res.serverPpe,
+          rule: `${targetComp.usefulLifeRep.toFixed(1)}년 → ${params.usefulLife.toFixed(1)}년 (-)`,
+          adjVal: -res.addedDep,
+          isRev: false,
+          reason: `장부 수명(${targetComp.usefulLifeRep}년) 대비 AI 가속기 실질 수명(${params.usefulLife}년) 단축에 따른 유지보수 CapEx 가산`
+        }
+      ];
+
+      tbody.innerHTML = items.map(item => `
+        <tr class="transition-colors">
+          <td class="py-2.5 pr-3 font-semibold text-paper-fg">${item.name}</td>
+          <td class="py-2.5 pr-3 text-paper-muted font-mono text-[11px]">${item.tag}</td>
+          <td class="py-2.5 pr-3 text-right font-mono-num font-semibold">$${formatB(item.rawVal)}B</td>
+          <td class="py-2.5 pr-3 text-center">
+            <span class="px-2 py-0.5 rounded text-[10px] font-mono border border-paper-border text-paper-muted">
+              ${item.rule}
+            </span>
+          </td>
+          <td class="py-2.5 pr-3 text-right font-mono-num ${item.isRev
+          ? 'text-paper-blue font-bold'
+          : item.adjVal < 0
+            ? 'text-paper-accent font-bold'
+            : 'text-paper-fg font-bold'
+        }">
+            ${item.isRev ? `$${formatB(item.adjVal)}B` : item.adjVal < 0 ? `-$${formatB(Math.abs(item.adjVal))}B` : `+$${formatB(item.adjVal)}B`}
+          </td>
+          <td class="py-2.5 text-paper-muted text-[11px] leading-relaxed">${item.reason}</td>
+        </tr>
+      `).join('');
+
+      if (tfoot) {
+        const isFcfPos = res.correctedFcf >= 0;
+        tfoot.innerHTML = `
+          <tr>
+            <td colspan="2" class="py-3 pr-3 text-paper-fg uppercase tracking-wider text-xs">
+              조정 FCF (Corrected FCF)
+            </td>
+            <td class="py-3 pr-3 text-right font-mono-num text-xs text-paper-muted">
+              공시 FCF: $${formatB(res.reportedFcf)}B
+            </td>
+            <td class="py-3 pr-3 text-center text-[11px] text-paper-accent font-mono">
+              순차감: -$${formatB(res.reportedFcf - res.correctedFcf)}B
+            </td>
+            <td class="py-3 pr-3 text-right font-mono-num text-sm ${isFcfPos ? 'text-paper-fg' : 'text-paper-accent'} font-extrabold">
+              $${formatB(res.correctedFcf)}B
+            </td>
+            <td class="py-3 text-[11px] font-mono text-paper-muted">
+              조정 마진: <strong class="${isFcfPos ? 'text-paper-fg' : 'text-paper-accent'} font-bold">${res.correctedMargin.toFixed(1)}%</strong>
+              (공시 대비 ${res.marginGapBp > 0 ? '-' : '+'}${Math.abs(res.marginGapBp)} bp)
+            </td>
+          </tr>
+        `;
+      }
+    }
+
+    function renderCharts(comp) {
+      const fys = Object.keys(comp.years).sort();
+      const isDark = document.documentElement.classList.contains('dark');
+      const textColor = isDark ? '#f4f4f0' : '#1c1c1a';
+      const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)';
+
+      // 1. History Chart Data
+      const repFcfData = [];
+      const corrFcfData = [];
+      const repMarginData = [];
+      const corrMarginData = [];
+
+      fys.forEach(fy => {
+        const c = calculateFcf(comp, fy);
+        repFcfData.push(c.reportedFcf / 1e9);
+        corrFcfData.push(c.correctedFcf / 1e9);
+        repMarginData.push(c.reportedMargin);
+        corrMarginData.push(c.correctedMargin);
+      });
+
+      if (historyChart) historyChart.destroy();
+      const ctxHist = document.getElementById('chartHistory').getContext('2d');
+      historyChart = new Chart(ctxHist, {
+        type: 'bar',
+        data: {
+          labels: fys.map(f => `FY${f}`),
+          datasets: [
+            {
+              label: '공시 FCF ($B)',
+              data: repFcfData,
+              backgroundColor: isDark ? 'rgba(2, 132, 199, 0.4)' : 'rgba(2, 132, 199, 0.25)',
+              borderColor: '#0284c7',
+              borderWidth: 1.5,
+              yAxisID: 'y'
+            },
+            {
+              label: '조정 FCF ($B)',
+              data: corrFcfData,
+              backgroundColor: isDark ? 'rgba(239, 68, 68, 0.4)' : 'rgba(239, 68, 68, 0.25)',
+              borderColor: '#ef4444',
+              borderWidth: 1.5,
+              yAxisID: 'y'
+            },
+            {
+              label: '공시 마진 (%)',
+              data: repMarginData,
+              type: 'line',
+              borderColor: '#0284c7',
+              borderWidth: 2,
+              borderDash: [4, 4],
+              pointRadius: 4,
+              yAxisID: 'y1'
+            },
+            {
+              label: '조정 마진 (%)',
+              data: corrMarginData,
+              type: 'line',
+              borderColor: '#ef4444',
+              borderWidth: 2.5,
+              pointRadius: 5,
+              yAxisID: 'y1'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              labels: { color: textColor, font: { family: "'JetBrains Mono'", size: 10 } }
+            }
+          },
+          scales: {
+            x: {
+              ticks: { color: textColor, font: { family: "'JetBrains Mono'" } },
+              grid: { color: gridColor }
+            },
+            y: {
+              position: 'left',
+              title: { display: true, text: 'FCF ($B)', color: textColor, font: { family: "'JetBrains Mono'" } },
+              ticks: { color: textColor, font: { family: "'JetBrains Mono'" } },
+              grid: { color: gridColor }
+            },
+            y1: {
+              position: 'right',
+              title: { display: true, text: 'Margin (%)', color: textColor, font: { family: "'JetBrains Mono'" } },
+              ticks: { color: textColor, font: { family: "'JetBrains Mono'" } },
+              grid: { display: false }
+            }
+          }
+        }
+      });
+
+      // 2. Waterfall Chart Data for current FY
+      const currRes = calculateFcf(comp, currentFy);
+      const wfLabels = ['Reported CFO', '(-) SBC', '(-) Lease', '(-) CapEx', '(-) ΔDep', 'Corrected FCF'];
+      const cfo = currRes.data.cfo / 1e9;
+      const sbc = currRes.sbcDeduction / 1e9;
+      const lease = currRes.leaseDeduction / 1e9;
+      const capex = currRes.data.capex / 1e9;
+      const addDep = currRes.addedDep / 1e9;
+      const normFcf = currRes.correctedFcf / 1e9;
+
+      // Floating bars: [min, max]
+      const step1 = cfo - sbc;
+      const step2 = step1 - lease;
+      const step3 = step2 - capex;
+      const step4 = step3 - addDep;
+
+      function toRange(a, b) {
+        return [Math.min(a, b), Math.max(a, b)];
+      }
+
+      const wfData = [
+        toRange(0, cfo),
+        toRange(step1, cfo),
+        toRange(step2, step1),
+        toRange(step3, step2),
+        toRange(step4, step3),
+        toRange(0, normFcf)
+      ];
+
+      const wfColors = [
+        '#0284c7', // CFO
+        '#ef4444', // SBC
+        '#ef4444', // Lease
+        '#d97706', // CapEx
+        '#f59e0b', // ΔDep
+        normFcf >= 0 ? '#10b981' : '#dc2626' // Final FCF
+      ];
+
+      if (waterfallChart) waterfallChart.destroy();
+      const ctxWf = document.getElementById('chartWaterfall').getContext('2d');
+      waterfallChart = new Chart(ctxWf, {
+        type: 'bar',
+        data: {
+          labels: wfLabels,
+          datasets: [{
+            label: '현금 유출입 ($B)',
+            data: wfData,
+            backgroundColor: wfColors,
+            borderColor: wfColors,
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function (context) {
+                  const val = context.raw;
+                  const diff = Math.abs(val[1] - val[0]);
+                  return `$${diff.toFixed(2)}B`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              ticks: { color: textColor, font: { family: "'JetBrains Mono'", size: 10 } },
+              grid: { color: gridColor }
+            },
+            y: {
+              title: { display: true, text: 'USD ($B)', color: textColor, font: { family: "'JetBrains Mono'" } },
+              ticks: { color: textColor, font: { family: "'JetBrains Mono'" } },
+              grid: { color: gridColor }
+            }
+          }
+        }
+      });
+    }
+
+    // Theme Toggle Logic
+    const themeBtn = document.getElementById('btnThemeToggle');
+    const themeIcon = document.getElementById('themeIcon');
+    const themeText = document.getElementById('themeText');
+
+    function applyTheme(isDark) {
+      if (isDark) {
+        document.documentElement.classList.add('dark');
+        if (themeText) themeText.textContent = 'Light';
+        if (themeBtn) {
+          const oldIcon = themeBtn.querySelector('[data-lucide], svg');
+          if (oldIcon) {
+            const newIcon = document.createElement('i');
+            newIcon.setAttribute('data-lucide', 'sun');
+            newIcon.className = 'w-3.5 h-3.5';
+            oldIcon.replaceWith(newIcon);
+          }
+        }
+      } else {
+        document.documentElement.classList.remove('dark');
+        if (themeText) themeText.textContent = 'Dark';
+        if (themeBtn) {
+          const oldIcon = themeBtn.querySelector('[data-lucide], svg');
+          if (oldIcon) {
+            const newIcon = document.createElement('i');
+            newIcon.setAttribute('data-lucide', 'moon');
+            newIcon.className = 'w-3.5 h-3.5';
+            oldIcon.replaceWith(newIcon);
+          }
+        }
+      }
+      lucide.createIcons();
+      if (historyChart) renderCharts(PRESETS[currentTicker]);
+    }
+
+    const savedTheme = localStorage.getItem('theme');
+    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const initialDark = savedTheme ? savedTheme === 'dark' : prefersDark;
+    applyTheme(initialDark);
+
+    if (themeBtn) {
+      themeBtn.addEventListener('click', () => {
+        const isDark = document.documentElement.classList.contains('dark');
+        const nextDark = !isDark;
+        applyTheme(nextDark);
+        localStorage.setItem('theme', nextDark ? 'dark' : 'light');
+      });
+    }
+
+    // Initialize application on window load
+    window.addEventListener('DOMContentLoaded', async () => {
+      setupFileUploader();
+      await loadData();
+    });
+  </script>
+</body>
+
+</html>

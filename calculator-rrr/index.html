@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pre-Trading RRR Calculator</title>
+    <!-- UnoCSS Runtime CDN & Reset -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@unocss/reset/tailwind.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@unocss/runtime"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Dark Theme (Gray palette) */
+        html.dark body {
+            background-color: #111827;
+            color: #f3f4f6;
+        }
+
+        html.dark .bg-white {
+            background-color: #1f2937 !important;
+        }
+
+        html.dark .bg-slate-50 {
+            background-color: #111827 !important;
+        }
+
+        html.dark .bg-slate-100 {
+            background-color: #374151 !important;
+        }
+
+        html.dark .bg-slate-100 .bg-white {
+            background-color: #1f2937 !important;
+        }
+
+        html.dark .border-slate-100,
+        html.dark .border-slate-200 {
+            border-color: #374151 !important;
+        }
+
+        html.dark .border-slate-300 {
+            border-color: #4b5563 !important;
+        }
+
+        html.dark .divide-slate-100> :not([hidden])~ :not([hidden]) {
+            border-color: #374151 !important;
+        }
+
+        html.dark .text-slate-900,
+        html.dark .text-slate-800 {
+            color: #f3f4f6 !important;
+        }
+
+        html.dark .text-slate-700,
+        html.dark .text-slate-600 {
+            color: #d1d5db !important;
+        }
+
+        html.dark .text-slate-500,
+        html.dark .text-slate-400 {
+            color: #9ca3af !important;
+        }
+
+        html.dark input {
+            background-color: #111827 !important;
+            color: #f3f4f6 !important;
+            border-color: #374151 !important;
+        }
+
+        html.dark input::placeholder {
+            color: #6b7280 !important;
+        }
+
+        html.dark .hover\:bg-slate-100:hover,
+        html.dark .hover\:bg-slate-50\/70:hover,
+        html.dark .hover\:bg-blue-50:hover,
+        html.dark .hover\:bg-blue-50\/50:hover,
+        html.dark .hover\:bg-red-50:hover {
+            background-color: #374151 !important;
+        }
+
+        html.dark .hover\:text-slate-700:hover,
+        html.dark .hover\:text-slate-600:hover {
+            color: #f3f4f6 !important;
+        }
+
+        html.dark .text-red-600 {
+            color: #f87171 !important;
+        }
+
+        html.dark .text-blue-600 {
+            color: #60a5fa !important;
+        }
+
+        html.dark .text-green-600 {
+            color: #4ade80 !important;
+        }
+
+        html.dark .text-yellow-600 {
+            color: #facc15 !important;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-50 min-h-screen flex items-center justify-center p-4 md:p-8 text-slate-900">
+
+    <div class="w-full max-w-5xl bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden">
+        <!-- Header -->
+        <div class="p-4 sm:p-6 border-b border-slate-100 space-y-1">
+            <div class="flex items-center justify-between gap-2">
+                <h1
+                    class="text-base sm:text-2xl font-bold flex items-center gap-1.5 sm:gap-2 text-slate-900 min-w-0 truncate">
+                    <button id="theme-toggle" type="button" onclick="toggleTheme()" title="테마 전환 (Light / Dark)"
+                        class="p-1.5 -ml-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors shrink-0 flex items-center justify-center">
+                        <i id="theme-icon" data-lucide="moon" class="w-5 h-5 sm:w-6 sm:h-6"></i>
+                    </button>
+                    <span class="truncate">평단가 및 목표손익비 계산기</span>
+                </h1>
+                <div class="flex items-center gap-1 shrink-0">
+                    <button id="info-btn" title="국내 파생상품 선물 기본 정보" onclick="openInfoModal()"
+                        class="p-1.5 sm:p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-1.5 text-xs font-medium">
+                        <i data-lucide="info" class="w-4 h-4"></i>
+                        <span class="hidden sm:inline">선물 정보</span>
+                    </button>
+                    <button id="reset-btn" title="전체 초기화"
+                        class="p-1.5 sm:p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-1.5 text-xs font-medium">
+                        <i data-lucide="refresh-ccw" class="w-4 h-4"></i>
+                        <span class="hidden sm:inline">초기화</span>
+                    </button>
+                </div>
+            </div>
+            <p class="text-xs sm:text-sm text-slate-500">매매 진입 전에 계산하세요.</p>
+        </div>
+
+        <div class="p-4 sm:p-6 space-y-6">
+            <!-- Top Controls: Position Side & Unit -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Position Side -->
+                <div class="space-y-1.5">
+                    <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Position Side</span>
+                    <div class="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-lg">
+                        <button id="pos-long"
+                            class="flex items-center justify-center gap-2 py-2 px-4 rounded-md transition-all bg-white shadow-sm text-red-600 font-bold text-sm"
+                            onclick="setPosition('long')">
+                            <i data-lucide="trending-up" class="w-4 h-4"></i> Long
+                        </button>
+                        <button id="pos-short"
+                            class="flex items-center justify-center gap-2 py-2 px-4 rounded-md transition-all text-slate-500 hover:text-slate-700 text-sm font-medium"
+                            onclick="setPosition('short')">
+                            <i data-lucide="trending-down" class="w-4 h-4"></i> Short
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Unit Selector -->
+                <div class="space-y-1.5">
+                    <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Unit</span>
+                    <div class="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-lg">
+                        <button id="unit-level"
+                            class="flex items-center justify-center gap-2 py-2 px-4 rounded-md transition-all bg-white shadow-sm text-slate-900 font-bold text-sm"
+                            onclick="setUnit('level')">
+                            Level (가격)
+                        </button>
+                        <button id="unit-rate"
+                            class="flex items-center justify-center gap-2 py-2 px-4 rounded-md transition-all text-slate-500 hover:text-slate-700 text-sm font-medium"
+                            onclick="setUnit('rate')">
+                            Rate (비율 %)
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Asset & Contract Parameters -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                <div class="space-y-1.5">
+                    <label for="asset-ticker" class="block text-xs font-semibold text-slate-600">자산명 (Ticker)</label>
+                    <input type="text" id="asset-ticker" placeholder="NVDA, BINANCE:BTCUSDT, KRX:K2I1!"
+                        class="w-full px-3 py-2 bg-white border border-slate-200 rounded-md text-sm font-semibold uppercase focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div class="space-y-1.5">
+                    <label for="leverage-input" class="block text-xs font-semibold text-slate-600">레버리지 (배)</label>
+                    <input type="number" id="leverage-input" value="1" step="any" min="0.01"
+                        class="w-full px-3 py-2 bg-white border border-slate-200 rounded-md text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div class="space-y-1.5">
+                    <label for="mmr-input" class="block text-xs font-semibold text-slate-600">유지증거금율 (%)</label>
+                    <input type="number" id="mmr-input" value="0" step="any" min="0"
+                        class="w-full px-3 py-2 bg-white border border-slate-200 rounded-md text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div class="space-y-1.5">
+                    <label for="multiplier-input" class="block text-xs font-semibold text-slate-600">계약 승수</label>
+                    <input type="number" id="multiplier-input" value="1" step="any" min="0.0001"
+                        class="w-full px-3 py-2 bg-white border border-slate-200 rounded-md text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+            </div>
+
+            <!-- Main 2-Column Workspace -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Left Column: Entry History Table & Position Summary -->
+                <div class="lg:col-span-7 space-y-6">
+                    <!-- Entry History Table -->
+                    <div class="border border-slate-200 rounded-xl p-4 sm:p-5 bg-white space-y-4">
+                        <div class="flex items-center justify-between gap-2">
+                            <h2
+                                class="text-sm sm:text-base font-bold text-slate-800 flex items-center gap-1.5 sm:gap-2 whitespace-nowrap">
+                                <i data-lucide="list-ordered" class="w-4 h-4 text-blue-600 shrink-0"></i>
+                                평단가 계산용 매매이력
+                            </h2>
+                            <button onclick="clearRows()"
+                                class="text-xs text-slate-400 hover:text-slate-600 underline underline-offset-2 transition-colors whitespace-nowrap shrink-0">
+                                이력 비우기
+                            </button>
+                        </div>
+
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="border-b border-slate-200 text-xs font-semibold text-slate-500">
+                                        <th class="py-2.5 px-2 w-14 text-center">차순</th>
+                                        <th class="py-2.5 px-2">진입 가격</th>
+                                        <th class="py-2.5 px-2">진입 수량</th>
+                                        <th class="py-2.5 px-2 w-14 text-center">삭제</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="entry-rows" class="divide-y divide-slate-100 text-sm">
+                                    <!-- Dynamic rows -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <button onclick="addRow()"
+                            class="w-full py-2.5 border border-dashed border-slate-300 hover:border-blue-500 hover:bg-blue-50/50 text-slate-600 hover:text-blue-600 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-1.5">
+                            <i data-lucide="plus" class="w-4 h-4"></i> 진입 이력 추가
+                        </button>
+                    </div>
+
+                    <!-- Position Summary Cards -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+                            <span class="text-xs font-medium text-slate-500">평균 진입가</span>
+                            <div id="sum-avg-price" class="text-xl font-extrabold text-slate-900">0.00</div>
+                        </div>
+                        <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+                            <span class="text-xs font-medium text-slate-500">포지션 청산가</span>
+                            <div id="sum-liq-price" class="text-xl font-extrabold text-blue-600">-</div>
+                        </div>
+                        <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+                            <span class="text-xs font-medium text-slate-500">총 포지션 가치</span>
+                            <div id="sum-pos-value" class="text-xl font-extrabold text-slate-900">0.00</div>
+                        </div>
+                        <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+                            <span class="text-xs font-medium text-slate-500">총 필요 증거금</span>
+                            <div id="sum-margin" class="text-xl font-extrabold text-blue-600">0.00</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column: TP / SL Inputs & RRR Result -->
+                <div class="lg:col-span-5 space-y-6">
+                    <div
+                        class="border border-slate-200 rounded-xl p-4 sm:p-5 bg-white space-y-5 h-full flex flex-col justify-between">
+                        <div class="space-y-5">
+                            <div class="flex items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                                <h2
+                                    class="text-sm sm:text-base font-bold text-slate-800 flex items-center gap-1.5 sm:gap-2 whitespace-nowrap">
+                                    <i data-lucide="target" class="w-4 h-4 text-blue-600 shrink-0"></i>
+                                    익절/손절 입력 및 손익비 계산
+                                </h2>
+                                <span id="active-asset-badge"
+                                    class="text-xs font-bold px-2 py-0.5 bg-slate-100 text-slate-600 rounded whitespace-nowrap shrink-0 hidden"></span>
+                            </div>
+
+                            <!-- Level Mode Inputs -->
+                            <div id="inputs-level" class="space-y-4">
+                                <div class="space-y-1.5">
+                                    <label for="tp-price-input" class="block text-sm font-semibold text-red-600">목표 익절가
+                                        (TP)</label>
+                                    <input type="number" id="tp-price-input" step="any" placeholder="0.00"
+                                        class="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-red-500">
+                                </div>
+                                <div class="space-y-1.5">
+                                    <label for="sl-price-input" class="block text-sm font-semibold text-blue-600">허용 손절가
+                                        (SL)</label>
+                                    <input type="number" id="sl-price-input" step="any" placeholder="0.00"
+                                        class="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
+                            </div>
+
+                            <!-- Rate Mode Inputs -->
+                            <div id="inputs-rate" class="space-y-4 hidden">
+                                <div class="space-y-1.5">
+                                    <label for="tp-rate-input" class="block text-sm font-semibold text-red-600">목표 수익률
+                                        (ROE %)</label>
+                                    <input type="number" id="tp-rate-input" step="any" placeholder="%"
+                                        class="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-red-500">
+                                </div>
+                                <div class="space-y-1.5">
+                                    <label for="sl-rate-input" class="block text-sm font-semibold text-blue-600">허용 손실률
+                                        (ROE %)</label>
+                                    <input type="number" id="sl-rate-input" step="any" placeholder="%"
+                                        class="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
+                            </div>
+
+                            <!-- Results Box -->
+                            <div class="p-4 bg-slate-50 rounded-xl border border-dashed border-slate-300 space-y-3">
+                                <!-- Dynamic secondary outputs (ROE% in Level mode, Price in Rate mode) -->
+                                <div class="flex justify-between items-center">
+                                    <span id="res-label-1" class="text-sm text-slate-500">목표 수익률 (ROE)</span>
+                                    <span id="res-val-1" class="font-bold text-base text-red-600">+0.00%</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span id="res-label-2" class="text-sm text-slate-500">허용 손실률 (ROE)</span>
+                                    <span id="res-val-2" class="font-bold text-base text-blue-600">-0.00%</span>
+                                </div>
+
+                                <div class="border-t border-slate-200 pt-3 space-y-2.5">
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-sm text-slate-500">목표 수익액</span>
+                                        <span id="res-profit-amt" class="font-bold text-base text-red-600">+0.00</span>
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-sm text-slate-500">허용 손실액</span>
+                                        <span id="res-loss-amt" class="font-bold text-base text-blue-600">-0.00</span>
+                                    </div>
+                                </div>
+
+                                <div class="pt-3 border-t border-slate-200 flex justify-between items-center">
+                                    <span class="text-sm font-semibold text-slate-700">목표 손익비 (RRR)</span>
+                                    <span id="res-rrr" class="font-black text-2xl text-slate-400">1 : 0.00</span>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+            <div class="text-[10px] text-center text-slate-400 uppercase tracking-widest pt-4">
+                Manage your loss risk. ㅈ문투기용 ㅈ문계산기 by 삼순동순기술
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Futures Info Modal -->
+    <div id="futures-info-modal" onclick="if(event.target === this) closeInfoModal()"
+        class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-white w-full max-w-3xl rounded-xl shadow-2xl border border-slate-200 overflow-hidden">
+            <div class="p-4 sm:p-5 border-b border-slate-100 flex items-start justify-between gap-3">
+                <div>
+                    <h3 class="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
+                        <i data-lucide="info" class="w-5 h-5 text-blue-600 shrink-0"></i>
+                        국내 파생상품 선물(근원물) 기본 정보
+                    </h3>
+                    <div id="futures-info-meta"
+                        class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500"></div>
+                </div>
+                <button onclick="closeInfoModal()" title="닫기"
+                    class="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors shrink-0">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div class="p-4 sm:p-5">
+                <div class="overflow-x-auto border border-slate-200 rounded-lg">
+                    <table id="futures-info-table"
+                        class="w-full text-left border-collapse text-xs sm:text-sm whitespace-nowrap">
+                        <thead id="futures-info-thead"></thead>
+                        <tbody id="futures-info-tbody" class="divide-y divide-slate-100 text-slate-700"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let currentPosition = 'long'; // 'long' | 'short'
+        let currentUnit = 'level'; // 'level' | 'rate'
+        let nextRowId = 2;
+        let entries = [{ id: 1, price: '', qty: '' }];
+
+        // Cached position metrics for unit conversion and simulation
+        let metrics = {
+            avgPrice: 0,
+            totalQty: 0,
+            posValue: 0,
+            margin: 0,
+            liqPrice: null
+        };
+
+        // DOM Elements
+        const tickerInput = document.getElementById('asset-ticker');
+        const levInput = document.getElementById('leverage-input');
+        const mmrInput = document.getElementById('mmr-input');
+        const multInput = document.getElementById('multiplier-input');
+        const tpPriceInput = document.getElementById('tp-price-input');
+        const slPriceInput = document.getElementById('sl-price-input');
+        const tpRateInput = document.getElementById('tp-rate-input');
+        const slRateInput = document.getElementById('sl-rate-input');
+        const resetBtn = document.getElementById('reset-btn');
+
+        // Formatting helpers
+        function formatPrice(num) {
+            if (num === null || isNaN(num) || !isFinite(num)) return '0.00';
+            if (num === 0) return '0.00';
+            const fixed = num.toFixed(6);
+            const [intPart, decPart] = fixed.split('.');
+            let trimmedDec = decPart.replace(/0+$/, '');
+            if (trimmedDec.length < 2) trimmedDec = decPart.slice(0, 2);
+            const formattedInt = Number(intPart).toLocaleString('en-US');
+            return `${formattedInt}.${trimmedDec}`;
+        }
+
+        function formatAmount(num) {
+            if (num === null || isNaN(num) || !isFinite(num)) return '0.00';
+            return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function formatInputNumber(num, maxDecimals = 6) {
+            if (isNaN(num) || !isFinite(num)) return '';
+            return Number(num.toFixed(maxDecimals)).toString();
+        }
+
+        function getRRColorClass(rr) {
+            if (rr >= 2) return 'text-green-600';
+            if (rr >= 1.5) return 'text-yellow-600';
+            if (rr > 0) return 'text-red-600';
+            return 'text-slate-400';
+        }
+
+        function getParams() {
+            const lev = parseFloat(levInput.value);
+            const mmr = parseFloat(mmrInput.value);
+            const mult = parseFloat(multInput.value);
+            return {
+                leverage: lev > 0 ? lev : 1,
+                mmr: mmr >= 0 ? mmr : 0,
+                multiplier: mult > 0 ? mult : 1
+            };
+        }
+
+        // Render entry table
+        function renderRows() {
+            const tbody = document.getElementById('entry-rows');
+            tbody.innerHTML = '';
+
+            if (entries.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="py-6 text-center text-xs text-slate-400">
+                            진입 이력이 없습니다. 아래 버튼으로 이력을 추가하세요.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            entries.forEach((row, idx) => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50/70 transition-colors';
+                tr.innerHTML = `
+                    <td class="py-2 px-2 text-center font-semibold text-slate-400">${idx + 1}</td>
+                    <td class="py-2 px-2">
+                        <input type="number" step="any" min="0" value="${row.price}" placeholder="0.00"
+                            oninput="updateRow(${row.id}, 'price', this.value)"
+                            class="w-full px-2.5 py-1.5 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium">
+                    </td>
+                    <td class="py-2 px-2">
+                        <input type="number" step="any" min="0" value="${row.qty}" placeholder="0"
+                            oninput="updateRow(${row.id}, 'qty', this.value)"
+                            class="w-full px-2.5 py-1.5 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium">
+                    </td>
+                    <td class="py-2 px-2 text-center">
+                        <button onclick="removeRow(${row.id})" title="행 삭제"
+                            class="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            lucide.createIcons();
+        }
+
+        function addRow() {
+            entries.push({ id: nextRowId++, price: '', qty: '' });
+            renderRows();
+            calculateAll();
+        }
+
+        function removeRow(id) {
+            entries = entries.filter(r => r.id !== id);
+            renderRows();
+            calculateAll();
+        }
+
+        function clearRows() {
+            entries = [{ id: nextRowId++, price: '', qty: '' }];
+            renderRows();
+            calculateAll();
+        }
+
+        function updateRow(id, field, value) {
+            const row = entries.find(r => r.id === id);
+            if (row) {
+                row[field] = value;
+                calculateAll();
+            }
+        }
+
+        // Toggle Position Side
+        function setPosition(pos) {
+            currentPosition = pos;
+            const longBtn = document.getElementById('pos-long');
+            const shortBtn = document.getElementById('pos-short');
+
+            if (pos === 'long') {
+                longBtn.className = 'flex items-center justify-center gap-2 py-2 px-4 rounded-md transition-all bg-white shadow-sm text-red-600 font-bold text-sm';
+                shortBtn.className = 'flex items-center justify-center gap-2 py-2 px-4 rounded-md transition-all text-slate-500 hover:text-slate-700 text-sm font-medium';
+            } else {
+                shortBtn.className = 'flex items-center justify-center gap-2 py-2 px-4 rounded-md transition-all bg-white shadow-sm text-blue-600 font-bold text-sm';
+                longBtn.className = 'flex items-center justify-center gap-2 py-2 px-4 rounded-md transition-all text-slate-500 hover:text-slate-700 text-sm font-medium';
+            }
+            calculateAll();
+        }
+
+        // Toggle Unit with automatic value conversion
+        function setUnit(unit) {
+            if (currentUnit === unit) return;
+
+            const { avgPrice } = metrics;
+            const { leverage } = getParams();
+
+            // Convert existing inputs before switching
+            if (avgPrice > 0 && leverage > 0) {
+                if (currentUnit === 'level' && unit === 'rate') {
+                    const tp = parseFloat(tpPriceInput.value);
+                    const sl = parseFloat(slPriceInput.value);
+
+                    if (!isNaN(tp) && tp > 0) {
+                        const tpPct = currentPosition === 'long'
+                            ? ((tp - avgPrice) / avgPrice) * leverage * 100
+                            : ((avgPrice - tp) / avgPrice) * leverage * 100;
+                        tpRateInput.value = formatInputNumber(tpPct, 2);
+                    } else {
+                        tpRateInput.value = '';
+                    }
+
+                    if (!isNaN(sl) && sl > 0) {
+                        const slPct = currentPosition === 'long'
+                            ? ((avgPrice - sl) / avgPrice) * leverage * 100
+                            : ((sl - avgPrice) / avgPrice) * leverage * 100;
+                        slRateInput.value = formatInputNumber(slPct, 2);
+                    } else {
+                        slRateInput.value = '';
+                    }
+                } else if (currentUnit === 'rate' && unit === 'level') {
+                    const tpPct = parseFloat(tpRateInput.value);
+                    const slPct = parseFloat(slRateInput.value);
+
+                    if (!isNaN(tpPct)) {
+                        const tp = currentPosition === 'long'
+                            ? avgPrice * (1 + (tpPct / 100) / leverage)
+                            : avgPrice * (1 - (tpPct / 100) / leverage);
+                        tpPriceInput.value = tp > 0 ? formatInputNumber(tp, 6) : '';
+                    } else {
+                        tpPriceInput.value = '';
+                    }
+
+                    if (!isNaN(slPct)) {
+                        const sl = currentPosition === 'long'
+                            ? avgPrice * (1 - (slPct / 100) / leverage)
+                            : avgPrice * (1 + (slPct / 100) / leverage);
+                        slPriceInput.value = sl > 0 ? formatInputNumber(sl, 6) : '';
+                    } else {
+                        slPriceInput.value = '';
+                    }
+                }
+            }
+
+            currentUnit = unit;
+            const levelBtn = document.getElementById('unit-level');
+            const rateBtn = document.getElementById('unit-rate');
+            const levelBox = document.getElementById('inputs-level');
+            const rateBox = document.getElementById('inputs-rate');
+
+            if (unit === 'level') {
+                levelBtn.className = 'flex items-center justify-center gap-2 py-2 px-4 rounded-md transition-all bg-white shadow-sm text-slate-900 font-bold text-sm';
+                rateBtn.className = 'flex items-center justify-center gap-2 py-2 px-4 rounded-md transition-all text-slate-500 hover:text-slate-700 text-sm font-medium';
+                levelBox.classList.remove('hidden');
+                rateBox.classList.add('hidden');
+                document.getElementById('res-label-1').innerText = '목표 수익률 (ROE)';
+                document.getElementById('res-label-2').innerText = '허용 손실률 (ROE)';
+            } else {
+                rateBtn.className = 'flex items-center justify-center gap-2 py-2 px-4 rounded-md transition-all bg-white shadow-sm text-slate-900 font-bold text-sm';
+                levelBtn.className = 'flex items-center justify-center gap-2 py-2 px-4 rounded-md transition-all text-slate-500 hover:text-slate-700 text-sm font-medium';
+                rateBox.classList.remove('hidden');
+                levelBox.classList.add('hidden');
+                document.getElementById('res-label-1').innerText = '목표 익절가 (TP)';
+                document.getElementById('res-label-2').innerText = '허용 손절가 (SL)';
+            }
+
+            calculateSimulation();
+        }
+
+        // Core calculation
+        function calculateAll() {
+            const { leverage, mmr, multiplier } = getParams();
+
+            let rawNotional = 0;
+            let totalQty = 0;
+
+            entries.forEach(row => {
+                const p = parseFloat(row.price);
+                const q = parseFloat(row.qty);
+                if (p > 0 && q > 0) {
+                    rawNotional += p * q;
+                    totalQty += q;
+                }
+            });
+
+            const avgPrice = totalQty > 0 ? rawNotional / totalQty : 0;
+            const posValue = rawNotional * multiplier;
+            const margin = leverage > 0 ? posValue / leverage : 0;
+
+            let liqPrice = null;
+            if (avgPrice > 0 && leverage > 0) {
+                const mmrDecimal = mmr / 100;
+                if (currentPosition === 'long') {
+                    const rawLiq = avgPrice * (1 - (1 / leverage) + mmrDecimal);
+                    liqPrice = rawLiq > 0 ? rawLiq : null;
+                } else {
+                    const rawLiq = avgPrice * (1 + (1 / leverage) - mmrDecimal);
+                    liqPrice = rawLiq > 0 ? rawLiq : null;
+                }
+            }
+
+            metrics = { avgPrice, totalQty, posValue, margin, liqPrice };
+
+            // Update Summary UI
+            document.getElementById('sum-avg-price').innerText = formatPrice(avgPrice);
+            document.getElementById('sum-liq-price').innerText = liqPrice !== null ? formatPrice(liqPrice) : (avgPrice > 0 ? '0 (상폐)' : '-');
+            document.getElementById('sum-pos-value').innerText = formatAmount(posValue);
+            document.getElementById('sum-margin').innerText = formatAmount(margin);
+
+            calculateSimulation();
+        }
+
+        function calculateSimulation() {
+            const { avgPrice, totalQty, margin } = metrics;
+            const { leverage, multiplier } = getParams();
+
+            const resVal1 = document.getElementById('res-val-1');
+            const resVal2 = document.getElementById('res-val-2');
+            const resProfitAmt = document.getElementById('res-profit-amt');
+            const resLossAmt = document.getElementById('res-loss-amt');
+            const resRRR = document.getElementById('res-rrr');
+
+            if (avgPrice <= 0 || totalQty <= 0 || margin <= 0) {
+                if (currentUnit === 'level') {
+                    resVal1.innerText = '+0.00%';
+                    resVal2.innerText = '-0.00%';
+                } else {
+                    resVal1.innerText = '0.00';
+                    resVal2.innerText = '0.00';
+                }
+                resProfitAmt.innerText = '+0.00';
+                resLossAmt.innerText = '-0.00';
+                resRRR.innerText = '1 : 0.00';
+                resRRR.className = 'font-black text-2xl text-slate-400';
+                return;
+            }
+
+            let profitAmt = 0;
+            let lossAmt = 0;
+            let hasTP = false;
+            let hasSL = false;
+
+            if (currentUnit === 'level') {
+                const tp = parseFloat(tpPriceInput.value);
+                const sl = parseFloat(slPriceInput.value);
+
+                if (!isNaN(tp) && tp > 0) {
+                    hasTP = true;
+                    profitAmt = currentPosition === 'long'
+                        ? (tp - avgPrice) * totalQty * multiplier
+                        : (avgPrice - tp) * totalQty * multiplier;
+                    const roeProfit = (profitAmt / margin) * 100;
+                    resVal1.innerText = `${roeProfit >= 0 ? '+' : ''}${formatAmount(roeProfit)}%`;
+                } else {
+                    resVal1.innerText = '+0.00%';
+                }
+
+                if (!isNaN(sl) && sl > 0) {
+                    hasSL = true;
+                    lossAmt = currentPosition === 'long'
+                        ? (avgPrice - sl) * totalQty * multiplier
+                        : (sl - avgPrice) * totalQty * multiplier;
+                    const roeLoss = (lossAmt / margin) * 100;
+                    resVal2.innerText = `${roeLoss >= 0 ? '-' : '+'}${formatAmount(Math.abs(roeLoss))}%`;
+                } else {
+                    resVal2.innerText = '-0.00%';
+                }
+            } else {
+                const tpPct = parseFloat(tpRateInput.value);
+                const slPct = parseFloat(slRateInput.value);
+
+                if (!isNaN(tpPct)) {
+                    hasTP = true;
+                    const tpPrice = currentPosition === 'long'
+                        ? avgPrice * (1 + (tpPct / 100) / leverage)
+                        : avgPrice * (1 - (tpPct / 100) / leverage);
+                    profitAmt = margin * (tpPct / 100);
+                    resVal1.innerText = tpPrice > 0 ? formatPrice(tpPrice) : '0.00';
+                } else {
+                    resVal1.innerText = '0.00';
+                }
+
+                if (!isNaN(slPct)) {
+                    hasSL = true;
+                    const slPrice = currentPosition === 'long'
+                        ? avgPrice * (1 - (slPct / 100) / leverage)
+                        : avgPrice * (1 + (slPct / 100) / leverage);
+                    lossAmt = margin * (slPct / 100);
+                    resVal2.innerText = slPrice > 0 ? formatPrice(slPrice) : '0.00';
+                } else {
+                    resVal2.innerText = '0.00';
+                }
+            }
+
+            resProfitAmt.innerText = hasTP
+                ? `${profitAmt >= 0 ? '+' : '-'}${formatAmount(Math.abs(profitAmt))}`
+                : '+0.00';
+            resLossAmt.innerText = hasSL
+                ? `${lossAmt >= 0 ? '-' : '+'}${formatAmount(Math.abs(lossAmt))}`
+                : '-0.00';
+
+            if (hasTP && hasSL && lossAmt > 0 && profitAmt > 0) {
+                const rr = profitAmt / lossAmt;
+                resRRR.innerText = `1 : ${formatAmount(rr)}`;
+                resRRR.className = `font-black text-2xl ${getRRColorClass(rr)}`;
+            } else {
+                resRRR.innerText = '1 : 0.00';
+                resRRR.className = 'font-black text-2xl text-slate-400';
+            }
+        }
+
+        // Event Listeners
+        tickerInput.addEventListener('input', () => {
+            const val = tickerInput.value.trim().toUpperCase();
+            const badge = document.getElementById('active-asset-badge');
+            if (val) {
+                badge.innerText = val;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        });
+
+        [levInput, mmrInput, multInput].forEach(el => {
+            el.addEventListener('input', calculateAll);
+        });
+
+        [tpPriceInput, slPriceInput, tpRateInput, slRateInput].forEach(el => {
+            el.addEventListener('input', calculateSimulation);
+        });
+
+        resetBtn.addEventListener('click', () => {
+            tickerInput.value = '';
+            document.getElementById('active-asset-badge').classList.add('hidden');
+            levInput.value = '1';
+            mmrInput.value = '0';
+            multInput.value = '1';
+            tpPriceInput.value = '';
+            slPriceInput.value = '';
+            tpRateInput.value = '';
+            slRateInput.value = '';
+            entries = [{ id: nextRowId++, price: '', qty: '' }];
+            setPosition('long');
+            setUnit('level');
+            renderRows();
+            calculateAll();
+        });
+
+        // Futures Info Data (CSV) & Modal Controls
+        const FUTURES_INFO_META = {
+            updatedAt: '2026-11-16',
+            sourceName: '한국투자증권 공지사항',
+            sourceUrl: 'https://securities.koreainvestment.com/main/customer/notice/Notice.jsp?cmd=TF04ga000001&num=&currentPage=1&flag=&focusYN=btn_focus2&userRowsPerPage=15&searchDate=month&fromDate=2025.11.17&toDate=2026.11.16&searchColumn=all&searchValue=%ED%8C%8C%EC%83%9D%EC%83%81%ED%92%88%EC%8B%9C%EC%9E%A5+%EC%A6%9D%EA%B1%B0%EA%B8%88%EB%A5%A0'
+        };
+
+        const FUTURES_INFO_CSV = `
+구분, 상품명, 거래승수(Multiplier), 증거금률(거래), 증거금률(위탁), 증거금률(유지)
+금리, 10년국채 선물, 1000000, 2.02%, 3.030%, 2.02%
+통화, 미국달러 선물, 10000, 3.03%, 4.545%, 3.03%
+주가지수, 코스피200 선물, 250000, 14.00%, 21.000%, 14.00%
+주가지수, 미니코스피200 선물, 50000, 14.00%, 21.000%, 14.00%
+주식, 삼성전자 선물, 10, 25.20%, 37.800%, 25.20%
+        `;
+
+        function renderFuturesInfo() {
+            const metaEl = document.getElementById('futures-info-meta');
+            metaEl.innerHTML = `
+                <span>최종수정일: ${FUTURES_INFO_META.updatedAt}</span>
+                <span>|</span>
+                <span>참고: <a href="${FUTURES_INFO_META.sourceUrl}" target="_blank" rel="noopener noreferrer"
+                    class="text-blue-600 hover:underline font-medium">${FUTURES_INFO_META.sourceName}</a></span>
+            `;
+
+            const lines = FUTURES_INFO_CSV.trim().split('\n').map(line => line.split(',').map(cell => cell.trim()));
+            if (lines.length === 0) return;
+
+            const [headers, ...rows] = lines;
+            document.getElementById('futures-info-thead').innerHTML = `
+                <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
+                    ${headers.map((h, i) => `<th class="py-2.5 px-3${i >= 2 ? ' text-right' : ''}">${h}</th>`).join('')}
+                </tr>
+            `;
+
+            document.getElementById('futures-info-tbody').innerHTML = rows.map(cols => `
+                <tr class="hover:bg-slate-50/70">
+                    ${cols.map((cell, i) => {
+                const display = /^\d+$/.test(cell) ? Number(cell).toLocaleString('en-US') : cell;
+                if (i === 0) return `<td class="py-2.5 px-3 text-slate-500">${display}</td>`;
+                if (i === 1) return `<td class="py-2.5 px-3 font-semibold text-slate-900">${display}</td>`;
+                return `<td class="py-2.5 px-3 text-right font-mono">${display}</td>`;
+            }).join('')}
+                </tr>
+            `).join('');
+        }
+
+        const infoModal = document.getElementById('futures-info-modal');
+
+        function openInfoModal() {
+            infoModal.classList.remove('hidden');
+            infoModal.classList.add('flex');
+        }
+
+        function closeInfoModal() {
+            infoModal.classList.add('hidden');
+            infoModal.classList.remove('flex');
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !infoModal.classList.contains('hidden')) {
+                closeInfoModal();
+            }
+        });
+
+        // Theme Toggle
+        function applyTheme(isDark) {
+            document.documentElement.classList.toggle('dark', isDark);
+            const iconBtn = document.getElementById('theme-toggle');
+            iconBtn.innerHTML = `<i data-lucide="${isDark ? 'sun' : 'moon'}" class="w-5 h-5 sm:w-6 sm:h-6"></i>`;
+            lucide.createIcons();
+        }
+
+        function toggleTheme() {
+            const isDark = !document.documentElement.classList.contains('dark');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            applyTheme(isDark);
+        }
+
+        // Init
+        applyTheme(localStorage.getItem('theme') === 'dark');
+        renderFuturesInfo();
+        renderRows();
+        calculateAll();
+        lucide.createIcons();
+    </script>
+</body>
+
+</html>

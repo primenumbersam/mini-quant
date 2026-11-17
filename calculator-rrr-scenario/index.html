@@ -1,0 +1,1347 @@
+<!DOCTYPE html>
+<html lang="ko" class="dark">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulator - Expected Risk-Reward Ratio</title>
+  <!-- UnoCSS Runtime CDN & Reset -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@unocss/reset/tailwind.min.css">
+  <script>
+    window.__unocss = {
+      theme: {
+        colors: {
+          gray: {
+            50: '#fafafa',
+            100: '#f5f5f5',
+            200: '#e5e5e5',
+            300: '#d4d4d4',
+            400: '#a3a3a3',
+            500: '#737373',
+            600: '#525252',
+            700: '#404040',
+            800: '#262626',
+            900: '#171717',
+            950: '#0a0a0a'
+          }
+        },
+        fontFamily: {
+          sans: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+          mono: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace'
+        }
+      }
+    }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/@unocss/runtime"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- KaTeX for LaTeX Math Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  <style>
+    /* Universal clean typography & tabular numbers */
+    body {
+      font-feature-settings: "tnum" 1, "cv05" 1;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .font-num {
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Minimalist scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(156, 163, 175, 0.4);
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(156, 163, 175, 0.7);
+    }
+
+    .grid-bg-dark {
+      background-size: 32px 32px;
+      background-image: linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    }
+
+    .grid-bg-light {
+      background-size: 32px 32px;
+      background-image: linear-gradient(to right, rgba(0, 0, 0, 0.04) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(0, 0, 0, 0.04) 1px, transparent 1px);
+    }
+
+    input[type=range] {
+      accent-color: currentColor;
+    }
+
+    /* Light theme palette: neutral achromatic monochrome */
+    html:not(.dark) body {
+      color: #171717;
+    }
+
+    html:not(.dark) .bg-gray-900\/80,
+    html:not(.dark) .bg-gray-900\/40 {
+      background-color: #ffffff;
+    }
+
+    html:not(.dark) .bg-gray-900 {
+      background-color: #ffffff;
+    }
+
+    html:not(.dark) .bg-gray-950,
+    html:not(.dark) .bg-gray-950\/40,
+    html:not(.dark) .bg-gray-950\/60,
+    html:not(.dark) .bg-gray-950\/70 {
+      background-color: #fafafa;
+    }
+
+    html:not(.dark) .bg-gray-600 {
+      background-color: #525252;
+    }
+
+    html:not(.dark) .text-white {
+      color: #171717;
+    }
+
+    html:not(.dark) .text-gray-100 {
+      color: #262626;
+    }
+
+    html:not(.dark) .text-gray-200 {
+      color: #404040;
+    }
+
+    html:not(.dark) .text-gray-300 {
+      color: #525252;
+    }
+
+    html:not(.dark) .text-gray-400,
+    html:not(.dark) .text-gray-500 {
+      color: #737373;
+    }
+
+    html:not(.dark) .text-gray-900 {
+      color: #171717;
+    }
+
+    html:not(.dark) .border-gray-800,
+    html:not(.dark) .border-gray-800\/40,
+    html:not(.dark) .divide-gray-800\/60 {
+      border-color: #e5e5e5;
+    }
+
+    html:not(.dark) .border-gray-700 {
+      border-color: #d4d4d4;
+    }
+
+    html:not(.dark) .border-gray-600 {
+      border-color: #a3a3a3;
+    }
+
+    html:not(.dark) .hover\:bg-gray-800\/40:hover {
+      background-color: #f5f5f5;
+    }
+
+    html:not(.dark) [class~="hover:text-white"]:hover {
+      color: #171717;
+    }
+
+    html:not(.dark) [class~="hover:border-gray-400"]:hover {
+      border-color: #737373;
+    }
+
+    html:not(.dark) [class~="focus:border-white"]:focus {
+      border-color: #171717;
+    }
+
+    html:not(.dark) input,
+    html:not(.dark) select {
+      color-scheme: light;
+    }
+
+    html:not(.dark) .grid-bg-light {
+      background-image: linear-gradient(to right, rgba(0, 0, 0, 0.04) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(0, 0, 0, 0.04) 1px, transparent 1px);
+    }
+
+    /* Mobile layout: keep controls readable without horizontal clipping. */
+    @media (max-width: 767px) {
+      #headerNav>div {
+        height: auto;
+        min-height: 4rem;
+        padding-top: 0.75rem;
+        padding-bottom: 0.75rem;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+      }
+
+      #headerNav>div>div:first-child {
+        flex: 1 1 100%;
+        min-width: 0;
+      }
+
+      #headerNav>div>div:last-child {
+        width: 100%;
+        justify-content: space-between;
+        gap: 0.5rem;
+      }
+
+      #presetSelect {
+        width: 100%;
+        max-width: none;
+        min-width: 0;
+      }
+
+      #headerNav .relative {
+        flex: 1 1 auto;
+        min-width: 0;
+      }
+
+      #themeToggleBtn {
+        flex: 0 0 auto;
+        white-space: nowrap;
+      }
+
+      main {
+        padding-top: 1.25rem;
+        padding-bottom: 1.5rem;
+      }
+
+      main>section {
+        gap: 1rem;
+      }
+
+      #inputContainer,
+      #inputContainer+div>div,
+      main>section>section {
+        padding: 1rem;
+      }
+
+      #inputContainer .grid-cols-2 {
+        gap: 0.625rem;
+      }
+
+      #inputContainer input[type="text"],
+      #inputContainer input[type="number"] {
+        min-width: 0;
+      }
+
+      #distributionChart {
+        max-height: 12rem;
+      }
+
+      table {
+        min-width: 720px;
+      }
+
+      #sensitivityTable {
+        min-width: 640px;
+      }
+    }
+
+    .chart-box-wrap {
+      position: relative;
+      width: 100%;
+      max-width: 100%;
+      flex: 1;
+      min-height: 11rem;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    #distributionChart {
+      display: block;
+      width: 100% !important;
+      max-width: 100% !important;
+      height: 100% !important;
+    }
+  </style>
+</head>
+
+<body
+  class="bg-[#0a0a0a] text-gray-100 min-h-screen flex flex-col font-sans transition-colors duration-200 grid-bg-dark"
+  id="appBody">
+
+  <!-- Header Navigation -->
+  <header class="border-b border-gray-800 bg-[#0a0a0a]/90 backdrop-blur-md sticky top-0 z-40" id="headerNav">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div
+          class="w-8 h-8 rounded border border-gray-600 bg-gray-900 flex items-center justify-center font-bold text-xs tracking-wider"
+          id="brandLogo">
+          느좋
+        </div>
+        <div>
+          <h1 class="text-xs uppercase tracking-wider text-gray-400 font-medium">기대 수익률+손익비 계산기</h1>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-3">
+        <!-- Preset Scenario Selector -->
+        <div class="relative">
+          <select id="presetSelect" onchange="applyPreset(this.value)"
+            class="text-xs bg-gray-900 border border-gray-700 text-gray-200 px-3 py-1.5 rounded focus:outline-none focus:border-white transition-colors cursor-pointer">
+            <option value="yield52">Preset: Bearish (p=0.25, q=0.20)</option>
+            <option value="bullCase">Preset: Bullish (p=0.65, q=0.70)</option>
+            <option value="highVol">Preset: Balanced (p=0.50, q=0.50)</option>
+            <option value="custom">Preset: Custom</option>
+          </select>
+        </div>
+
+        <!-- Light/Dark Mode Switcher -->
+        <button id="themeToggleBtn" onclick="toggleTheme()"
+          class="px-2.5 py-1.5 text-xs border border-gray-700 rounded hover:border-gray-400 text-gray-300 transition-colors flex items-center space-x-1">
+          <span id="themeIcon">☀</span>
+          <span id="themeLabel">Light</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+    <!-- Top Configuration & Metric Overview Grid -->
+    <section class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+      <!-- Left: Interactive Parameter Controls Card -->
+      <div class="lg:col-span-5 bg-gray-900/80 border border-gray-800 p-6 rounded-xl backdrop-blur space-y-6"
+        id="inputContainer">
+        <div class="flex items-center justify-between pb-3 border-b border-gray-800">
+          <span class="text-xs uppercase tracking-wider text-gray-400 font-semibold">Parameters</span>
+          <span class="text-xs px-2 py-0.5 border border-gray-700 rounded text-gray-300 font-medium">2-Factor
+            Bernoulli</span>
+        </div>
+
+        <!-- Position Mode Switcher: Buy/Long vs Sell/Short -->
+        <div>
+          <label class="block text-xs uppercase tracking-wider text-gray-400 font-semibold mb-2">Position
+            Side</label>
+          <div class="grid grid-cols-2 gap-2 p-1 bg-gray-950 border border-gray-800 rounded-lg text-xs font-medium">
+            <button id="btnPositionLong" onclick="setPosition('LONG')"
+              class="py-2.5 rounded font-bold transition-all duration-200 bg-white text-black shadow-sm">
+              BUY / LONG
+            </button>
+            <button id="btnPositionShort" onclick="setPosition('SHORT')"
+              class="py-2.5 rounded font-bold transition-all duration-200 text-gray-400 hover:text-white">
+              SELL / SHORT
+            </button>
+          </div>
+          <p class="text-[11px] text-gray-400 mt-2" id="positionContextNote">
+            * LONG: 수익률 \(R_i = \frac{S_i - S}{S}\). 주가가 현물가보다 상승 시 이익을 실현합니다.
+          </p>
+        </div>
+
+        <!-- Asset & Spot Price (S) Inputs -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-gray-400 font-medium mb-1">Asset Ticker</label>
+            <input type="text" id="inputTicker" value="PLTR" oninput="handleParamChange()"
+              class="w-full bg-gray-950 border border-gray-700 px-3 py-2 text-sm text-white rounded-lg focus:outline-none focus:border-white font-medium">
+          </div>
+          <div>
+            <label class="block text-xs text-gray-400 font-medium mb-1">Spot Price (\(S\))</label>
+            <div class="relative">
+              <span class="absolute left-3 top-2 text-sm text-gray-400 font-mono">$</span>
+              <input type="number" id="inputSpotPrice" value="100.00" step="0.5" min="0.1" oninput="handleParamChange()"
+                class="w-full bg-gray-950 border border-gray-700 pl-7 pr-3 py-2 text-sm text-white rounded-lg focus:outline-none focus:border-white font-num font-medium">
+            </div>
+          </div>
+        </div>
+
+        <!-- Macro Event Probability p -->
+        <div class="space-y-1.5 pt-3 border-t border-gray-800">
+          <div class="flex justify-between items-center text-xs">
+            <span class="text-gray-300 font-medium">Macro Relief Prob (\(p\))</span>
+            <span class="text-white font-bold font-num" id="displayP">0.25 (25.0%)</span>
+          </div>
+          <p class="text-[11px] text-gray-400">CPI 하회 &amp; 국채 금리 안정 확률</p>
+          <div class="flex items-center space-x-3">
+            <input type="range" id="sliderP" min="0.01" max="0.99" step="0.01" value="0.25" oninput="syncP(this.value)"
+              class="w-full text-white cursor-pointer">
+            <input type="number" id="numP" min="0.01" max="0.99" step="0.01" value="0.25" oninput="syncP(this.value)"
+              class="w-16 bg-gray-950 border border-gray-700 text-xs text-center py-1 rounded text-white focus:outline-none focus:border-white font-num font-medium">
+          </div>
+        </div>
+
+        <!-- Micro Event Probability q -->
+        <div class="space-y-1.5 pt-3 border-t border-gray-800">
+          <div class="flex justify-between items-center text-xs">
+            <span class="text-gray-300 font-medium">Micro Beat Prob (\(q\))</span>
+            <span class="text-white font-bold font-num" id="displayQ">0.20 (20.0%)</span>
+          </div>
+          <p class="text-[11px] text-gray-400">기업 실적 안심 &amp; 현금흐름 밸류에이션 증명 확률</p>
+          <div class="flex items-center space-x-3">
+            <input type="range" id="sliderQ" min="0.01" max="0.99" step="0.01" value="0.20" oninput="syncQ(this.value)"
+              class="w-full text-white cursor-pointer">
+            <input type="number" id="numQ" min="0.01" max="0.99" step="0.01" value="0.20" oninput="syncQ(this.value)"
+              class="w-16 bg-gray-950 border border-gray-700 text-xs text-center py-1 rounded text-white focus:outline-none focus:border-white font-num font-medium">
+          </div>
+        </div>
+
+        <!-- Extreme Amplitudes: Upside u & Downside d with Live Price Previews -->
+        <div class="grid grid-cols-2 gap-4 pt-3 border-t border-gray-800">
+          <!-- Upside u -->
+          <div class="space-y-1.5">
+            <div class="flex justify-between items-center text-xs">
+              <span class="text-gray-300 font-medium">Upside (\(u\))</span>
+              <span class="text-white font-bold font-num" id="displayU">+30.0%</span>
+            </div>
+            <div class="flex items-center space-x-2">
+              <input type="range" id="sliderU" min="0.05" max="1.50" step="0.01" value="0.30"
+                oninput="syncU(this.value)" class="w-full text-white cursor-pointer">
+              <input type="number" id="numU" min="5" max="150" step="1" value="30" oninput="syncUNum(this.value)"
+                class="w-14 bg-gray-950 border border-gray-700 text-xs text-center py-1 rounded text-white focus:outline-none focus:border-white font-num font-medium">
+            </div>
+            <!-- Live Upside Target Price Tag -->
+            <div
+              class="flex items-center justify-between text-[11px] bg-gray-950/70 border border-gray-800 px-2 py-1 rounded">
+              <span class="text-gray-400">목표가 (\(S_4\)):</span>
+              <span class="font-bold text-white font-num" id="liveUpsidePricePreview">$130.00</span>
+            </div>
+          </div>
+
+          <!-- Downside d -->
+          <div class="space-y-1.5">
+            <div class="flex justify-between items-center text-xs">
+              <span class="text-gray-300 font-medium">Downside (\(d\))</span>
+              <span class="text-white font-bold font-num" id="displayD">-25.0%</span>
+            </div>
+            <div class="flex items-center space-x-2">
+              <input type="range" id="sliderD" min="0.05" max="0.95" step="0.01" value="0.25"
+                oninput="syncD(this.value)" class="w-full text-white cursor-pointer">
+              <input type="number" id="numD" min="5" max="95" step="1" value="25" oninput="syncDNum(this.value)"
+                class="w-14 bg-gray-950 border border-gray-700 text-xs text-center py-1 rounded text-white focus:outline-none focus:border-white font-num font-medium">
+            </div>
+            <!-- Live Downside Target Price Tag -->
+            <div
+              class="flex items-center justify-between text-[11px] bg-gray-950/70 border border-gray-800 px-2 py-1 rounded">
+              <span class="text-gray-400">하방가 (\(S_1\)):</span>
+              <span class="font-bold text-white font-num" id="liveDownsidePricePreview">$75.00</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Right: Primary Quantitative Metrics & Edge Diagnostics -->
+      <div class="lg:col-span-7 flex flex-col justify-between space-y-6">
+
+        <!-- Large Primary Stat Card -->
+        <div class="bg-gray-900/80 border border-gray-800 p-6 rounded-xl backdrop-blur">
+          <div class="flex items-center justify-between pb-3 border-b border-gray-800 mb-5">
+            <div class="flex items-center space-x-2">
+              <span class="w-2.5 h-2.5 bg-white rounded-full inline-block animate-pulse"></span>
+              <span class="text-xs uppercase tracking-wider text-gray-400 font-semibold">Ex-Ante Edge Evaluation</span>
+            </div>
+            <div id="verdictBadge"
+              class="text-xs uppercase tracking-wider px-3 py-1 rounded border border-gray-700 font-bold">
+              --
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-5 sm:gap-6">
+            <!-- Expected Spot Price E[S] -->
+            <div>
+              <p class="text-xs text-gray-400 font-medium mb-1">Expected Price (\(E[S]\))</p>
+              <div class="text-3xl font-bold tracking-tight text-white font-num" id="metricExpPrice">
+                $0.00
+              </div>
+              <p class="text-xs text-gray-400 mt-1 font-num" id="metricPriceDelta">
+                Delta: $0.00 (-0.0%)
+              </p>
+            </div>
+            <!-- Expected Return E[R] -->
+            <div>
+              <p class="text-xs text-gray-400 font-medium mb-1">Expected Return (\(E[R]\))</p>
+              <div class="text-3xl font-bold tracking-tight text-white font-num" id="metricExpReturn">
+                0.00%
+              </div>
+              <p class="text-xs text-gray-400 mt-1 font-medium" id="metricExpReturnSub">
+                사전적 기대수익률
+              </p>
+            </div>
+
+            <!-- Weighted Risk-Reward Ratio RRR_w -->
+            <div>
+              <p class="text-xs text-gray-400 font-medium mb-1">Weighted RRR (\(\text{RRR}_w\))</p>
+              <div class="text-3xl font-bold tracking-tight text-white font-num" id="metricRRRWeighted">
+                0.00
+              </div>
+              <p class="text-xs text-gray-400 mt-1 font-num" id="metricNominalRRR">
+                Nominal RRR: 1.20x
+              </p>
+            </div>
+          </div>
+
+          <!-- Component Metrics: Win Rate, Kelly Fraction, Expected Gain, Expected Loss -->
+          <div class="mt-6 pt-5 border-t border-gray-800 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+            <div>
+              <span class="text-gray-400 block font-medium mb-0.5">Win Rate (\(P(R > 0)\))</span>
+              <span class="text-white font-semibold text-sm font-num" id="metricWinProb">0.0%</span>
+            </div>
+            <div>
+              <span class="text-gray-400 block font-medium mb-0.5">Kelly Fraction (\(f^*\))</span>
+              <span class="text-white font-semibold text-sm font-num" id="metricKellyFraction">0.00%</span>
+            </div>
+            <div>
+              <span class="text-gray-400 block font-medium mb-0.5">Expected Gain (\(E[G]\))</span>
+              <span class="text-white font-semibold text-sm font-num" id="metricExpGain">+0.00%</span>
+            </div>
+            <div>
+              <span class="text-gray-400 block font-medium mb-0.5">Expected Loss (\(E[L]\))</span>
+              <span class="text-white font-semibold text-sm font-num" id="metricExpLoss">-0.00%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Distribution Chart Canvas (Arranged from Bear S1 to Bull S4) -->
+        <div class="bg-gray-900/80 border border-gray-800 p-5 rounded-xl flex-1 flex flex-col justify-start min-w-0 overflow-hidden">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs uppercase tracking-wider text-gray-400 font-semibold">State Distribution: Bear
+              (\(S_1\)) &rarr; Bull (\(S_4\))</span>
+            <span class="text-[11px] text-gray-400 font-medium">Bars: Probability &bull; Points: Strategy PnL %</span>
+          </div>
+          <div class="chart-box-wrap w-full relative">
+            <canvas id="distributionChart"></canvas>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- 4-State Partition Matrix (Reordered: S1 Bear to S4 Bull) -->
+    <section class="bg-gray-900/80 border border-gray-800 rounded-xl p-6 space-y-4">
+      <div
+        class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-3 border-b border-gray-800">
+        <div>
+          <h2 class="text-sm font-bold uppercase tracking-wider text-white">4-State Partition Matrix</h2>
+          <p class="text-xs text-gray-400">배타적 4대 상태 공간: \(S_1\)(극단적 약세) &rarr; \(S_4\)(극단적 강세)</p>
+        </div>
+        <div class="text-xs text-gray-400 flex items-center space-x-3">
+          <span>\(S_{mid} = S \cdot [1 + \frac{u - d}{2}]\)</span>
+          <span class="px-2.5 py-1 border border-gray-700 rounded text-white font-num font-semibold"
+            id="tableMidPricePreview">S_mid = $102.50</span>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs">
+          <thead>
+            <tr class="border-b border-gray-800 text-gray-400 uppercase text-[11px] tracking-wider font-semibold">
+              <th class="py-3 px-3">State</th>
+              <th class="py-3 px-3">Macro (CPI / Yield)</th>
+              <th class="py-3 px-3">Micro (Earnings)</th>
+              <th class="py-3 px-3 text-right">Probability \(P(S_i)\)</th>
+              <th class="py-3 px-3 text-right">Spot \(S(S_i)\)</th>
+              <th class="py-3 px-3 text-right">Asset Move</th>
+              <th class="py-3 px-3 text-right" id="thStrategyPnL">Strategy Return</th>
+              <th class="py-3 px-3 text-right">Contribution (\(P \times R\))</th>
+            </tr>
+          </thead>
+          <tbody id="stateTableBody" class="divide-y divide-gray-800/60 font-num">
+            <!-- Populated dynamically via JS -->
+          </tbody>
+          <tfoot>
+            <tr class="border-t-2 border-gray-700 font-bold text-white text-xs bg-gray-950/40 font-num">
+              <td class="py-3 px-3" colspan="3">Aggregated Expected Values (\(\Sigma\))</td>
+              <td class="py-3 px-3 text-right" id="totalProbCell">100.0%</td>
+              <td class="py-3 px-3 text-right" id="totalPriceCell">$87.38</td>
+              <td class="py-3 px-3 text-right" id="totalAssetMoveCell">-12.63%</td>
+              <td class="py-3 px-3 text-right" id="totalReturnCell">-12.63%</td>
+              <td class="py-3 px-3 text-right" id="totalContributionCell">-12.63%</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </section>
+
+    <!-- 2D Sensitivity Heatmap (Continuous Monochrome Shading) -->
+    <section class="bg-gray-900/80 border border-gray-800 rounded-xl p-6 space-y-4">
+      <div
+        class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-3 border-b border-gray-800">
+        <div>
+          <h2 class="text-sm font-bold uppercase tracking-wider text-white">Sensitivity Heatmap: Expected Return
+            \(E[R]\)</h2>
+          <p class="text-xs text-gray-400">(row: 거시 완화 확률 \(p\)) &times; (column: 기업 실적 surprise 확률 \(q\))</p>
+        </div>
+        <div class="text-[11px] flex items-center space-x-2 text-gray-400">
+          <span class="inline-block w-3.5 h-3.5 bg-white border border-gray-300 rounded-sm"></span>
+          <span>Strong Edge (\(E[R] \gg 0\))</span>
+          <span class="inline-block w-3.5 h-3.5 bg-gray-600 rounded-sm ml-2"></span>
+          <span>Neutral (\(\approx 0\%\))</span>
+          <span class="inline-block w-3.5 h-3.5 bg-gray-950 border border-gray-700 rounded-sm ml-2"></span>
+          <span>Deficit (\(E[R] < 0\))</span>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-center text-xs border-collapse font-num" id="sensitivityTable">
+          <!-- Populated dynamically via JS -->
+        </table>
+      </div>
+      <p class="text-[11px] text-gray-400 pt-1">
+        * 테두리로 강조된 셀은 사용자가 현재 설정한 조작점 \((p, q)\) 위치를 나타냅니다.
+      </p>
+    </section>
+
+    <!-- Mathematical Formulation & Model Specification with KaTeX -->
+    <section class="border border-gray-800 bg-gray-900/40 p-6 rounded-xl text-xs space-y-3">
+      <div class="flex items-center justify-between cursor-pointer" onclick="toggleFormulas()">
+        <span class="uppercase tracking-wider text-gray-400 font-semibold">Model
+          Specification</span>
+        <span id="formulaToggleText" class="text-gray-400 hover:text-white font-medium">[+] Expand</span>
+      </div>
+
+      <div id="formulaContent" class="hidden pt-3 border-t border-gray-800 space-y-3 text-gray-300 leading-relaxed">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="space-y-2 p-3.5 border border-gray-800 rounded-lg bg-gray-950/60">
+            <span class="text-white font-bold block text-sm">상태 공간 재정의 (Bear &rarr; Bull)</span>
+            <p>&bull; \(S_1\) (극단적 약세): \(P(S_1) = (1-p)(1-q)\), \(S(S_1) = S \cdot (1 - d)\)</p>
+            <p>&bull; \(S_2\) (약세 우위): \(P(S_2) = (1-p)q\), \(S(S_2) = S_{mid} = S \cdot [1 + \frac{u - d}{2}]\)</p>
+            <p>&bull; \(S_3\) (강세 우위): \(P(S_3) = p(1-q)\), \(S(S_3) = S_{mid} = S \cdot [1 + \frac{u - d}{2}]\)</p>
+            <p>&bull; \(S_4\) (극단적 강세): \(P(S_4) = p \cdot q\), \(S(S_4) = S \cdot (1 + u)\)</p>
+          </div>
+          <div class="space-y-2 p-3.5 border border-gray-800 rounded-lg bg-gray-950/60">
+            <span class="text-white font-bold block text-sm">포지션별 전략 수익률 함수</span>
+            <p>&bull; <strong>BUY / LONG</strong>: \(R_i = \frac{S(S_i) - S}{S}\)</p>
+            <p>&bull; <strong>SELL / SHORT</strong>: \(R_i = \frac{S - S(S_i)}{S} = - R_i(\text{Long})\)</p>
+            <p>&bull; 기대 수익률: \(E[R] = \sum_{i=1}^4 P(S_i) \cdot R_i\)</p>
+            <p>&bull; <strong>Kelly Criterion (\(f^*\))</strong>: \(\max_f \sum_{i=1}^4 P(S_i) \ln(1 + f R_i) \implies
+              \sum_{i=1}^4 \frac{P(S_i) R_i}{1 + f^* R_i} = 0\)</p>
+            <p class="text-[11px] text-gray-400 pl-2">2-상태 닫힌 해 \(f^* = \frac{p_{up}}{r_{down}} -
+              \frac{p_{down}}{r_{up}}\)를 4-상태 공간으로 확장한 1계 최적성 조건(FOC) 수치해</p>
+          </div>
+          <div class="space-y-2 p-3.5 border border-gray-800 rounded-lg bg-gray-950/60">
+            <span class="text-white font-bold block text-sm">확률 가중 손익비 (\(\text{RRR}_w\))</span>
+            <p>&bull; 기대 이익: \(\text{Expected Gain} = \sum_{R_i > 0} P(S_i) \cdot R_i\)</p>
+            <p>&bull; 기대 손실: \(\text{Expected Loss} = \sum_{R_i < 0} P(S_i) \cdot |R_i|\)</p>
+                <p>&bull; 가중 손익비: \(\text{RRR}_w = \frac{\text{Expected Gain}}{\text{Expected Loss}}\)</p>
+          </div>
+          <div class="space-y-2 p-3.5 border border-gray-800 rounded-lg bg-gray-950/60">
+            <span class="text-white font-bold block text-sm">단순 명목 손익비 (\(\text{RRR}_{nominal}\))</span>
+            <p>&bull; LONG 포지션: \(\text{RRR}_{nominal} = \frac{u}{d}\)</p>
+            <p>&bull; SHORT 포지션: \(\text{RRR}_{nominal} = \frac{d}{u}\)</p>
+            <p>&bull; 양 극단의 순수 진폭 비율을 비교하여 비대칭성을 점검합니다.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-gray-800 py-6 text-center text-xs text-gray-500">
+    <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+      <span>삼순동순 &bull; 기술좋문 좋소기업</span>
+      <span>100% CLIENT-SIDE COMPUTATION</span>
+    </div>
+  </footer>
+
+  <script>
+    // Application State
+    const state = {
+      position: 'LONG', // 'LONG' or 'SHORT'
+      ticker: 'PLTR',
+      S: 100.0,
+      p: 0.25,
+      q: 0.20,
+      u: 0.30,
+      d: 0.25,
+      isDark: true
+    };
+
+    let chartInstance = null;
+
+    // Presets
+    const PRESETS = {
+      yield52: { p: 0.25, q: 0.20, u: 0.30, d: 0.25 },
+      bullCase: { p: 0.65, q: 0.70, u: 0.35, d: 0.20 },
+      highVol: { p: 0.50, q: 0.50, u: 0.40, d: 0.40 }
+    };
+
+    // Initialize on window load
+    window.onload = function () {
+      initChart();
+      updateAllCalculations();
+      triggerKaTeX();
+      setTimeout(() => {
+        if (chartInstance) chartInstance.resize();
+      }, 50);
+    };
+
+    // Helper to safely render KaTeX
+    function triggerKaTeX() {
+      if (typeof renderMathInElement === 'function') {
+        renderMathInElement(document.body, {
+          delimiters: [
+            { left: '$$', right: '$$', display: true },
+            { left: '\\[', right: '\\]', display: true },
+            { left: '\\(', right: '\\)', display: false },
+            { left: '$', right: '$', display: false }
+          ],
+          throwOnError: false
+        });
+      }
+    }
+
+    // Toggle Position Long vs Short
+    function setPosition(pos) {
+      state.position = pos;
+      const btnLong = document.getElementById('btnPositionLong');
+      const btnShort = document.getElementById('btnPositionShort');
+      const note = document.getElementById('positionContextNote');
+      const thStrategy = document.getElementById('thStrategyPnL');
+
+      if (pos === 'LONG') {
+        btnLong.className = "py-2.5 rounded font-bold transition-all duration-200 bg-white text-black shadow-sm";
+        btnShort.className = "py-2.5 rounded font-bold transition-all duration-200 text-gray-400 hover:text-white";
+        note.innerHTML = "* LONG: 수익률 \\(R_i = \\frac{S_i - S}{S}\\). 주가가 현물가보다 상승 시 이익을 실현합니다.";
+        thStrategy.innerText = "Long Return";
+      } else {
+        btnShort.className = "py-2.5 rounded font-bold transition-all duration-200 bg-white text-black shadow-sm";
+        btnLong.className = "py-2.5 rounded font-bold transition-all duration-200 text-gray-400 hover:text-white";
+        note.innerHTML = "* SHORT: 수익률 \\(R_i = \\frac{S - S_i}{S}\\). 주가가 현물가보다 하락 시 이익을 실현합니다.";
+        thStrategy.innerText = "Short Return";
+      }
+
+      updateAllCalculations();
+      triggerKaTeX();
+    }
+
+    // Apply Presets
+    function applyPreset(key) {
+      if (!PRESETS[key]) return;
+      const data = PRESETS[key];
+      state.p = data.p;
+      state.q = data.q;
+      state.u = data.u;
+      state.d = data.d;
+
+      document.getElementById('sliderP').value = state.p;
+      document.getElementById('numP').value = state.p;
+      document.getElementById('sliderQ').value = state.q;
+      document.getElementById('numQ').value = state.q;
+      document.getElementById('sliderU').value = state.u;
+      document.getElementById('numU').value = Math.round(state.u * 100);
+      document.getElementById('sliderD').value = state.d;
+      document.getElementById('numD').value = Math.round(state.d * 100);
+
+      updateAllCalculations();
+    }
+
+    // Two-way synchronization handlers
+    function syncP(val) {
+      const v = Math.min(0.99, Math.max(0.01, parseFloat(val) || 0.01));
+      state.p = v;
+      document.getElementById('sliderP').value = v;
+      document.getElementById('numP').value = v.toFixed(2);
+      document.getElementById('presetSelect').value = 'custom';
+      updateAllCalculations();
+    }
+
+    function syncQ(val) {
+      const v = Math.min(0.99, Math.max(0.01, parseFloat(val) || 0.01));
+      state.q = v;
+      document.getElementById('sliderQ').value = v;
+      document.getElementById('numQ').value = v.toFixed(2);
+      document.getElementById('presetSelect').value = 'custom';
+      updateAllCalculations();
+    }
+
+    function syncU(val) {
+      const v = Math.min(1.5, Math.max(0.01, parseFloat(val) || 0.01));
+      state.u = v;
+      document.getElementById('sliderU').value = v;
+      document.getElementById('numU').value = Math.round(v * 100);
+      document.getElementById('presetSelect').value = 'custom';
+      updateAllCalculations();
+    }
+
+    function syncUNum(val) {
+      const v = Math.min(150, Math.max(1, parseFloat(val) || 1)) / 100;
+      state.u = v;
+      document.getElementById('sliderU').value = v;
+      document.getElementById('numU').value = Math.round(v * 100);
+      document.getElementById('presetSelect').value = 'custom';
+      updateAllCalculations();
+    }
+
+    function syncD(val) {
+      const v = Math.min(0.95, Math.max(0.01, parseFloat(val) || 0.01));
+      state.d = v;
+      document.getElementById('sliderD').value = v;
+      document.getElementById('numD').value = Math.round(v * 100);
+      document.getElementById('presetSelect').value = 'custom';
+      updateAllCalculations();
+    }
+
+    function syncDNum(val) {
+      const v = Math.min(95, Math.max(1, parseFloat(val) || 1)) / 100;
+      state.d = v;
+      document.getElementById('sliderD').value = v;
+      document.getElementById('numD').value = Math.round(v * 100);
+      document.getElementById('presetSelect').value = 'custom';
+      updateAllCalculations();
+    }
+
+    function handleParamChange() {
+      state.ticker = (document.getElementById('inputTicker').value || 'TICKER').toUpperCase();
+      state.S = Math.max(0.01, parseFloat(document.getElementById('inputSpotPrice').value) || 100);
+      updateAllCalculations();
+    }
+
+    function toggleFormulas() {
+      const content = document.getElementById('formulaContent');
+      const text = document.getElementById('formulaToggleText');
+      if (content.classList.contains('hidden')) {
+        content.classList.remove('hidden');
+        text.innerText = '[-] Collapse Model Specification';
+        triggerKaTeX();
+      } else {
+        content.classList.add('hidden');
+        text.innerText = '[+] Expand Model Specification';
+      }
+    }
+
+    // Master Quantitative Calculation Engine: Reordered S1 Bear to S4 Bull
+    function calculateQuantitativeState(p, q, u, d, S, position) {
+      // 1. Joint Probabilities (Ordered from Bear to Bull)
+      // S1: Macro Shock (1-p) & Micro Miss (1-q) => Extreme Bear
+      const probS1 = (1 - p) * (1 - q);
+      // S2: Macro Shock (1-p) & Micro Beat (q) => Bear Lean
+      const probS2 = (1 - p) * q;
+      // S3: Macro Relief (p) & Micro Miss (1-q) => Bull Lean
+      const probS3 = p * (1 - q);
+      // S4: Macro Relief (p) & Micro Beat (q) => Extreme Bull
+      const probS4 = p * q;
+
+      // 2. State Prices
+      const priceS1 = S * (1 - d);              // Deep Bear
+      const priceS4 = S * (1 + u);              // Extreme Bull
+      const priceMid = (priceS1 + priceS4) / 2; // S * [1 + (u - d)/2]
+      const priceS2 = priceMid;
+      const priceS3 = priceMid;
+
+      // 3. Raw Underlying Asset Returns
+      const rawR1 = -d;
+      const rawRMid = (u - d) / 2;
+      const rawR4 = u;
+
+      // 4. Directional Strategy Returns (Long vs Short)
+      let r1, r2, r3, r4;
+      if (position === 'LONG') {
+        r1 = rawR1;
+        r2 = rawRMid;
+        r3 = rawRMid;
+        r4 = rawR4;
+      } else {
+        // Short earns inversely: (S - S_i) / S = - R_raw
+        r1 = -rawR1;
+        r2 = -rawRMid;
+        r3 = -rawRMid;
+        r4 = -rawR4;
+      }
+
+      const states = [
+        {
+          id: 'S1',
+          tag: 'Deep Bear',
+          name: 'Macro Shock ∩ Micro Miss',
+          macro: 'CPI Miss (1-p)',
+          micro: 'Earnings Miss (1-q)',
+          prob: probS1,
+          price: priceS1,
+          rawR: rawR1,
+          r: r1
+        },
+        {
+          id: 'S2',
+          tag: 'Bear Lean',
+          name: 'Macro Shock ∩ Micro Beat',
+          macro: 'CPI Miss (1-p)',
+          micro: 'Earnings Beat (q)',
+          prob: probS2,
+          price: priceS2,
+          rawR: rawRMid,
+          r: r2
+        },
+        {
+          id: 'S3',
+          tag: 'Bull Lean',
+          name: 'Macro Relief ∩ Micro Miss',
+          macro: 'CPI Beat (p)',
+          micro: 'Earnings Miss (1-q)',
+          prob: probS3,
+          price: priceS3,
+          rawR: rawRMid,
+          r: r3
+        },
+        {
+          id: 'S4',
+          tag: 'Extreme Bull',
+          name: 'Macro Relief ∩ Micro Beat',
+          macro: 'CPI Beat (p)',
+          micro: 'Earnings Beat (q)',
+          prob: probS4,
+          price: priceS4,
+          rawR: rawR4,
+          r: r4
+        }
+      ];
+
+      // 5. Expected Values
+      let expReturn = 0;
+      let expPrice = 0;
+      let expGain = 0;
+      let expLoss = 0;
+      let winProb = 0;
+
+      states.forEach(st => {
+        st.contribution = st.prob * st.r;
+        expReturn += st.contribution;
+        expPrice += st.prob * st.price;
+
+        if (st.r > 0) {
+          expGain += st.prob * st.r;
+          winProb += st.prob;
+        } else if (st.r < 0) {
+          expLoss += st.prob * Math.abs(st.r);
+        }
+      });
+
+      // 6. Probability-Weighted RRR
+      let rrrWeighted = 0;
+      if (expLoss > 0.000001) {
+        rrrWeighted = expGain / expLoss;
+      } else if (expGain > 0) {
+        rrrWeighted = 999.0;
+      }
+
+      // 7. Nominal RRR
+      const nominalRRR = position === 'LONG' ? (u / d) : (d / u);
+
+      // 8. 4-State Kelly Criterion (f*) via Newton-Raphson & Bisection
+      // Objective: max_f sum_{i=1}^4 P(S_i) * ln(1 + f * R_i)
+      // First-Order Condition: g'(f) = sum_{i=1}^4 [P(S_i) * R_i / (1 + f * R_i)] = 0
+      let minF = -Infinity;
+      let maxF = Infinity;
+      states.forEach(st => {
+        if (st.r > 0) {
+          minF = Math.max(minF, -1 / st.r);
+        } else if (st.r < 0) {
+          maxF = Math.min(maxF, -1 / st.r);
+        }
+      });
+
+      let low = Number.isFinite(minF) ? minF + 1e-4 : -10;
+      let high = Number.isFinite(maxF) ? maxF - 1e-4 : 10;
+      let f = 0.0;
+      f = Math.max(low, Math.min(high, f));
+
+      for (let iter = 0; iter < 40; iter++) {
+        let gPrime = 0;
+        let gDoublePrime = 0;
+        for (let i = 0; i < states.length; i++) {
+          const denom = 1 + f * states[i].r;
+          gPrime += (states[i].prob * states[i].r) / denom;
+          gDoublePrime -= (states[i].prob * states[i].r * states[i].r) / (denom * denom);
+        }
+
+        if (Math.abs(gPrime) < 1e-7) break;
+
+        if (gPrime > 0) {
+          low = f;
+        } else {
+          high = f;
+        }
+
+        let nextF = f - gPrime / gDoublePrime;
+        if (isNaN(nextF) || nextF <= low || nextF >= high) {
+          nextF = (low + high) / 2;
+        }
+
+        if (Math.abs(nextF - f) < 1e-7) {
+          f = nextF;
+          break;
+        }
+        f = nextF;
+      }
+      const kellyFraction = f;
+
+      return {
+        states,
+        expReturn,
+        expPrice,
+        expGain,
+        expLoss,
+        rrrWeighted,
+        nominalRRR,
+        winProb,
+        kellyFraction,
+        priceMid,
+        priceS1,
+        priceS4
+      };
+    }
+
+    // Master UI Refresh Function
+    function updateAllCalculations() {
+      // 1. Update text displays & live price tags
+      document.getElementById('displayP').innerText = `${state.p.toFixed(2)} (${(state.p * 100).toFixed(1)}%)`;
+      document.getElementById('displayQ').innerText = `${state.q.toFixed(2)} (${(state.q * 100).toFixed(1)}%)`;
+      document.getElementById('displayU').innerText = `+${(state.u * 100).toFixed(1)}%`;
+      document.getElementById('displayD').innerText = `-${(state.d * 100).toFixed(1)}%`;
+
+      const liveUpPrice = state.S * (1 + state.u);
+      const liveDownPrice = state.S * (1 - state.d);
+      document.getElementById('liveUpsidePricePreview').innerText = `$${liveUpPrice.toFixed(2)}`;
+      document.getElementById('liveDownsidePricePreview').innerText = `$${liveDownPrice.toFixed(2)}`;
+
+      const qResult = calculateQuantitativeState(state.p, state.q, state.u, state.d, state.S, state.position);
+
+      // 2. Primary KPI Display
+      const metricExpReturn = document.getElementById('metricExpReturn');
+      const isPositive = qResult.expReturn >= 0;
+      metricExpReturn.innerText = `${isPositive ? '+' : ''}${(qResult.expReturn * 100).toFixed(2)}%`;
+      metricExpReturn.className = `text-3xl font-bold tracking-tight font-num ${isPositive ? 'text-white' : 'text-gray-400'}`;
+
+      // RRR Weighted
+      const rrrDisplay = qResult.rrrWeighted > 100 ? '> 100.0x' : `${qResult.rrrWeighted.toFixed(2)}x`;
+      document.getElementById('metricRRRWeighted').innerText = rrrDisplay;
+      document.getElementById('metricNominalRRR').innerText = `Nominal RRR: ${qResult.nominalRRR.toFixed(2)}x`;
+
+      // Expected Spot Price
+      document.getElementById('metricExpPrice').innerText = `$${qResult.expPrice.toFixed(2)}`;
+      const priceDelta = qResult.expPrice - state.S;
+      const deltaSign = priceDelta >= 0 ? '+' : '';
+      const deltaPct = ((priceDelta / state.S) * 100).toFixed(2);
+      document.getElementById('metricPriceDelta').innerText = `Delta: ${deltaSign}$${priceDelta.toFixed(2)} (${deltaSign}${deltaPct}%)`;
+
+      // Expected Gain, Expected Loss, Win Probability, Kelly Fraction
+      document.getElementById('metricExpGain').innerText = `+${(qResult.expGain * 100).toFixed(2)}%`;
+      document.getElementById('metricExpLoss').innerText = `-${(qResult.expLoss * 100).toFixed(2)}%`;
+      document.getElementById('metricWinProb').innerText = `${(qResult.winProb * 100).toFixed(1)}%`;
+      const kellyEl = document.getElementById('metricKellyFraction');
+      if (kellyEl) {
+        const kfPct = (qResult.kellyFraction * 100).toFixed(2);
+        const kfSign = qResult.kellyFraction >= 0 ? '+' : '';
+        kellyEl.innerText = `${kfSign}${kfPct}%`;
+        kellyEl.className = `text-white font-semibold text-sm font-num ${qResult.kellyFraction < 0 ? 'text-gray-400' : ''}`;
+      }
+
+      // Strategy Verdict Badge
+      const verdict = document.getElementById('verdictBadge');
+      if (qResult.expReturn > 0.05 && qResult.rrrWeighted >= 1.5) {
+        verdict.innerText = `${state.position} ASYMMETRIC ADVANTAGE`;
+        verdict.className = "text-xs uppercase tracking-wider px-3 py-1 rounded border border-white bg-white text-black font-bold";
+      } else if (qResult.expReturn > 0) {
+        verdict.innerText = `${state.position} MARGINAL EDGE`;
+        verdict.className = "text-xs uppercase tracking-wider px-3 py-1 rounded border border-gray-400 text-white font-bold";
+      } else {
+        verdict.innerText = `${state.position} NEGATIVE EXPECTATION`;
+        verdict.className = "text-xs uppercase tracking-wider px-3 py-1 rounded border border-gray-700 text-gray-400 font-bold bg-gray-950/60";
+      }
+
+      // Mid-price preview
+      document.getElementById('tableMidPricePreview').innerText = `S_mid = $${qResult.priceMid.toFixed(2)}`;
+
+      // 3. Render 4-State Table (S1 Bear to S4 Bull)
+      renderStateTable(qResult);
+
+      // 4. Update Chart
+      updateChart(qResult);
+
+      // 5. Render Refined Monochrome Heatmap
+      renderSensitivityMatrix();
+    }
+
+    // Render 4-State Table
+    function renderStateTable(result) {
+      const tbody = document.getElementById('stateTableBody');
+      tbody.innerHTML = '';
+
+      result.states.forEach(st => {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-gray-800/40 transition-colors";
+
+        const pnlPctFormatted = `${st.r >= 0 ? '+' : ''}${(st.r * 100).toFixed(2)}%`;
+        const contribFormatted = `${st.contribution >= 0 ? '+' : ''}${(st.contribution * 100).toFixed(3)}%`;
+        const rawMoveFormatted = `${st.rawR >= 0 ? '+' : ''}${(st.rawR * 100).toFixed(2)}%`;
+
+        tr.innerHTML = `
+          <td class="py-3 px-3">
+            <span class="font-bold text-white">${st.id}</span>
+            <span class="text-[10px] text-gray-400 block font-normal">${st.tag}</span>
+          </td>
+          <td class="py-3 px-3 text-gray-300">${st.macro}</td>
+          <td class="py-3 px-3 text-gray-300">${st.micro}</td>
+          <td class="py-3 px-3 text-right text-gray-200 font-medium">${(st.prob * 100).toFixed(1)}%</td>
+          <td class="py-3 px-3 text-right text-white font-semibold">$${st.price.toFixed(2)}</td>
+          <td class="py-3 px-3 text-right text-gray-400">${rawMoveFormatted}</td>
+          <td class="py-3 px-3 text-right font-semibold ${st.r >= 0 ? 'text-white' : 'text-gray-400'}">${pnlPctFormatted}</td>
+          <td class="py-3 px-3 text-right ${st.contribution >= 0 ? 'text-white font-bold' : 'text-gray-400'}">${contribFormatted}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      // Update Table Footer
+      document.getElementById('totalPriceCell').innerText = `$${result.expPrice.toFixed(2)}`;
+
+      const rawUnderlyingMove = ((result.expPrice - state.S) / state.S) * 100;
+      document.getElementById('totalAssetMoveCell').innerText = `${rawUnderlyingMove >= 0 ? '+' : ''}${rawUnderlyingMove.toFixed(2)}%`;
+
+      const retSign = result.expReturn >= 0 ? '+' : '';
+      document.getElementById('totalReturnCell').innerText = `${retSign}${(result.expReturn * 100).toFixed(2)}%`;
+      document.getElementById('totalContributionCell').innerText = `${retSign}${(result.expReturn * 100).toFixed(2)}%`;
+    }
+
+    // Chart.js Configuration: S1 (Left/Bear) to S4 (Right/Bull)
+    function initChart() {
+      const ctx = document.getElementById('distributionChart').getContext('2d');
+      chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: [
+            'S1 (Deep Bear)',
+            'S2 (Bear Lean)',
+            'S3 (Bull Lean)',
+            'S4 (Extreme Bull)'
+          ],
+          datasets: [
+            {
+              type: 'bar',
+              label: 'State Probability (%)',
+              data: [60, 15, 20, 5],
+              backgroundColor: 'rgba(255, 255, 255, 0.25)',
+              borderColor: 'rgba(255, 255, 255, 0.8)',
+              borderWidth: 1,
+              yAxisID: 'yProb',
+              barPercentage: 0.5,
+              borderRadius: 4
+            },
+            {
+              type: 'line',
+              label: 'Strategy Return (%)',
+              data: [-25, 2.5, 2.5, 30],
+              borderColor: '#ffffff',
+              backgroundColor: '#ffffff',
+              pointRadius: 4,
+              pointHoverRadius: 6,
+              pointBackgroundColor: '#ffffff',
+              yAxisID: 'yReturn',
+              tension: 0.1
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: { duration: 250 },
+          plugins: {
+            legend: {
+              display: true,
+              labels: {
+                color: '#a3a3a3',
+                font: { family: 'system-ui', size: 11, weight: '500' }
+              }
+            },
+            tooltip: {
+              backgroundColor: '#171717',
+              borderColor: '#404040',
+              borderWidth: 1,
+              titleFont: { family: 'system-ui', size: 12 },
+              bodyFont: { family: 'system-ui', size: 11 },
+              callbacks: {
+                label: function (context) {
+                  if (context.dataset.type === 'bar') {
+                    return ` Probability: ${context.parsed.y.toFixed(1)}%`;
+                  }
+                  return ` Strategy Return: ${context.parsed.y.toFixed(2)}%`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { color: '#a3a3a3', font: { family: 'system-ui', size: 11 } }
+            },
+            yProb: {
+              type: 'linear',
+              position: 'left',
+              min: 0,
+              max: 100,
+              grid: { color: 'rgba(255, 255, 255, 0.05)' },
+              ticks: {
+                color: '#a3a3a3',
+                font: { family: 'system-ui', size: 10 },
+                callback: v => v + '%'
+              }
+            },
+            yReturn: {
+              type: 'linear',
+              position: 'right',
+              grid: { display: false },
+              ticks: {
+                color: '#ffffff',
+                font: { family: 'system-ui', size: 10 },
+                callback: v => (v > 0 ? '+' : '') + v + '%'
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function updateChart(result) {
+      if (!chartInstance) return;
+      const probData = result.states.map(s => s.prob * 100);
+      const returnData = result.states.map(s => s.r * 100);
+
+      chartInstance.data.datasets[0].data = probData;
+      chartInstance.data.datasets[1].data = returnData;
+      chartInstance.data.datasets[1].label = `${state.position} Return (%)`;
+      chartInstance.update();
+    }
+
+    // 2D Sensitivity Heatmap with Continuous Grayscale Density Shading
+    function renderSensitivityMatrix() {
+      const table = document.getElementById('sensitivityTable');
+      const pSteps = [0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70];
+      const qSteps = [0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70];
+
+      // First pass: find min and max expected return across table for normalized density
+      let minReturn = 0;
+      let maxReturn = 0;
+      const matrixData = [];
+
+      pSteps.forEach((pVal, rIdx) => {
+        matrixData[rIdx] = [];
+        qSteps.forEach((qVal, cIdx) => {
+          const sim = calculateQuantitativeState(pVal, qVal, state.u, state.d, state.S, state.position);
+          const ret = sim.expReturn * 100;
+          matrixData[rIdx][cIdx] = ret;
+          if (ret < minReturn) minReturn = ret;
+          if (ret > maxReturn) maxReturn = ret;
+        });
+      });
+
+      let html = '<thead><tr class="text-[11px] text-gray-400 font-semibold">';
+      html += '<th class="py-2.5 px-3 bg-gray-950/70 border border-gray-800">p (Macro) \\ q (Micro)</th>';
+      qSteps.forEach(q => {
+        const isCurrentQ = Math.abs(q - state.q) < 0.05;
+        html += `<th class="py-2.5 px-2.5 border border-gray-800 ${isCurrentQ ? 'text-white font-bold bg-gray-800/60' : 'text-gray-400'}">q = ${q.toFixed(2)}</th>`;
+      });
+      html += '</tr></thead><tbody>';
+
+      pSteps.forEach((pVal, rIdx) => {
+        const isCurrentP = Math.abs(pVal - state.p) < 0.05;
+        html += `<tr>`;
+        html += `<td class="py-2 px-3 font-semibold bg-gray-950/40 border border-gray-800 ${isCurrentP ? 'text-white font-bold bg-gray-800/60' : 'text-gray-400'}">p = ${pVal.toFixed(2)}</td>`;
+
+        qSteps.forEach((qVal, cIdx) => {
+          const expR = matrixData[rIdx][cIdx];
+          const isCurrentCell = isCurrentP && Math.abs(qVal - state.q) < 0.05;
+
+          // Unified Continuous Grayscale Density Shading (Preserved identically in Light & Dark modes)
+          let bgStyle = '';
+          let textColor = '';
+
+          if (expR >= 0) {
+            // Edge Zone: Gradient from mid gray (35%) up to pure white (95%)
+            const ratio = maxReturn > 0 ? Math.min(1, expR / maxReturn) : 1;
+            const lightness = Math.round(35 + ratio * 60); // 35% ~ 95%
+            bgStyle = `background-color: hsl(0, 0%, ${lightness}%);`;
+            textColor = lightness > 65 ? 'color: #0a0a0a; font-weight: 700;' : 'color: #ffffff; font-weight: 600;';
+          } else {
+            // Deficit Zone: Gradient from deep dark (7%) up to dark-mid (20%)
+            const ratio = minReturn < 0 ? Math.min(1, Math.abs(expR) / Math.abs(minReturn)) : 1;
+            const lightness = Math.round(20 - ratio * 13); // 20% down to 7%
+            bgStyle = `background-color: hsl(0, 0%, ${lightness}%);`;
+            textColor = 'color: #a3a3a3; font-weight: 500;';
+          }
+
+          const highlightStyle = isCurrentCell ? 'outline: 2px solid #ffffff; outline-offset: -2px; z-index: 10;' : '';
+          const sign = expR >= 0 ? '+' : '';
+          html += `<td class="py-2.5 px-2 transition-all duration-150 border border-gray-800 relative font-num" style="${bgStyle} ${textColor} ${highlightStyle}">
+            <span>${sign}${expR.toFixed(1)}%</span>
+          </td>`;
+        });
+        html += '</tr>';
+      });
+
+      html += '</tbody>';
+      table.innerHTML = html;
+    }
+
+    // Toggle Theme (Light vs Dark)
+    function toggleTheme() {
+      state.isDark = !state.isDark;
+      const html = document.documentElement;
+      const body = document.getElementById('appBody');
+      const header = document.getElementById('headerNav');
+      const themeIcon = document.getElementById('themeIcon');
+      const themeLabel = document.getElementById('themeLabel');
+
+      if (state.isDark) {
+        html.classList.add('dark');
+        body.className = "bg-[#0a0a0a] text-gray-100 min-h-screen flex flex-col font-sans transition-colors duration-200 grid-bg-dark";
+        header.className = "border-b border-gray-800 bg-[#0a0a0a]/90 backdrop-blur-md sticky top-0 z-40";
+        themeIcon.innerText = '☀';
+        themeLabel.innerText = 'Light';
+        if (chartInstance) {
+          chartInstance.options.scales.x.ticks.color = '#a3a3a3';
+          chartInstance.options.scales.yProb.ticks.color = '#a3a3a3';
+          chartInstance.options.scales.yReturn.ticks.color = '#ffffff';
+          chartInstance.options.scales.yProb.grid.color = 'rgba(255, 255, 255, 0.05)';
+          chartInstance.options.plugins.legend.labels.color = '#a3a3a3';
+          chartInstance.options.plugins.tooltip.backgroundColor = '#171717';
+          chartInstance.options.plugins.tooltip.borderColor = '#404040';
+          chartInstance.options.plugins.tooltip.titleColor = '#ffffff';
+          chartInstance.options.plugins.tooltip.bodyColor = '#ffffff';
+          chartInstance.data.datasets[0].backgroundColor = 'rgba(255, 255, 255, 0.25)';
+          chartInstance.data.datasets[0].borderColor = 'rgba(255, 255, 255, 0.8)';
+          chartInstance.data.datasets[1].borderColor = '#ffffff';
+          chartInstance.data.datasets[1].pointBackgroundColor = '#ffffff';
+          chartInstance.update();
+        }
+      } else {
+        html.classList.remove('dark');
+        body.className = "bg-[#fafafa] text-gray-900 min-h-screen flex flex-col font-sans transition-colors duration-200 grid-bg-light";
+        header.className = "border-b border-gray-300 bg-[#fafafa]/90 backdrop-blur-md sticky top-0 z-40";
+        themeIcon.innerText = '☾';
+        themeLabel.innerText = 'Dark';
+        if (chartInstance) {
+          chartInstance.options.scales.x.ticks.color = '#525252';
+          chartInstance.options.scales.yProb.ticks.color = '#525252';
+          chartInstance.options.scales.yReturn.ticks.color = '#171717';
+          chartInstance.options.scales.yProb.grid.color = 'rgba(0, 0, 0, 0.06)';
+          chartInstance.options.plugins.legend.labels.color = '#404040';
+          chartInstance.options.plugins.tooltip.backgroundColor = '#ffffff';
+          chartInstance.options.plugins.tooltip.borderColor = '#d4d4d4';
+          chartInstance.options.plugins.tooltip.titleColor = '#171717';
+          chartInstance.options.plugins.tooltip.bodyColor = '#404040';
+          chartInstance.data.datasets[0].backgroundColor = 'rgba(0, 0, 0, 0.25)';
+          chartInstance.data.datasets[0].borderColor = 'rgba(0, 0, 0, 0.8)';
+          chartInstance.data.datasets[1].borderColor = '#171717';
+          chartInstance.data.datasets[1].pointBackgroundColor = '#171717';
+          chartInstance.update();
+        }
+      }
+      renderSensitivityMatrix();
+    }
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="ko" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deribit Option Analyzer</title>
+    <!-- UnoCSS Runtime CDN & Reset -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@unocss/reset/tailwind.min.css">
+    <script>
+        window.__unocss = {
+            theme: {
+                colors: {
+                    brand: {
+                        gold: '#F7931A',
+                        darkbg: '#111111',
+                        panel: '#18181B',
+                        accent: '#D4D4D8',
+                        call: '#10B981',
+                        put: '#EF4444'
+                    }
+                }
+            }
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/@unocss/runtime"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
+
+        body {
+            font-family: 'Inter', 'Noto Sans KR', sans-serif;
+            background-color: #111111;
+            color: #E4E4E7;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #111111;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #3F3F46;
+            border-radius: 9999px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #52525B;
+        }
+    </style>
+</head>
+
+<body class="p-4 md:p-8 min-h-screen bg-[#111111] text-zinc-200">
+
+    <!-- Header Section -->
+    <header class="mb-8 border-b border-zinc-800 pb-6">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2">
+                    옵션 곡률 &amp; OTM 비대칭성 분석 대시보드 <span id="assetBadge" class="text-brand-gold">BTC</span>
+                </h1>
+                <p id="headerSubtitle" class="text-zinc-400 mt-2 text-sm">
+                    Deribit 옵션 체인 CSV 데이터를 기반으로 등가(ATM) 동일 거리 외가격(OTM) 콜·풋 프리미엄 우위 및 곡률·내재변동성 비대칭성을 분석합니다.
+                </p>
+            </div>
+
+            <div class="flex items-center gap-3 shrink-0">
+                <label
+                    class="cursor-pointer bg-brand-gold hover:bg-amber-500 text-zinc-950 font-bold px-4 py-2.5 rounded-lg transition duration-200 shadow-lg text-sm flex items-center gap-2">
+                    <span>CSV 파일 업로드</span>
+                    <input type="file" id="csvFileInput" accept=".csv" class="hidden" />
+                </label>
+                <button id="loadSampleBtn" type="button"
+                    class="bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-100 font-medium px-4 py-2.5 rounded-lg transition duration-200 text-sm cursor-pointer">
+                    샘플 데이터 로드
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- App Container -->
+    <main class="grid grid-cols-1 xl:grid-cols-4 gap-6">
+
+        <!-- Sidebar and KPI Panel (Right on Desktop) -->
+        <div class="xl:col-span-1 xl:order-2 flex flex-col gap-6">
+            <!-- Account Status & Source -->
+            <div class="bg-zinc-900 rounded-xl p-5 border border-zinc-800">
+                <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                    데이터 상태 요약
+                </h2>
+                <div class="space-y-3 text-sm">
+                    <div class="flex justify-between gap-2 border-b border-zinc-800 pb-2">
+                        <span class="text-zinc-400 shrink-0">데이터 소스</span>
+                        <span id="dataSourceLabel" class="text-zinc-100 font-semibold truncate text-right">샘플 데이터
+                            (모델링)</span>
+                    </div>
+                    <div class="flex justify-between border-b border-zinc-800 pb-2">
+                        <span class="text-zinc-400">총 레코드 수</span>
+                        <span id="dataCountLabel" class="text-white font-semibold">60개 행</span>
+                    </div>
+                    <div class="flex justify-between border-b border-zinc-800 pb-2">
+                        <span class="text-zinc-400">만기일</span>
+                        <span id="expiryLabel" class="text-white font-semibold">-</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-zinc-400">기본 행사가 격차</span>
+                        <span id="strikeStepLabel" class="text-white font-semibold">1,000 USD</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Key Financial Indicators (Estimated) -->
+            <div class="bg-zinc-900 rounded-xl p-5 border border-zinc-800">
+                <h2 class="text-lg font-bold text-white mb-4">시장 주요 추정 지표</h2>
+
+                <div class="space-y-4">
+                    <div>
+                        <span class="text-xs text-zinc-400 block mb-1">기준 등가격 (ATM Strike)</span>
+                        <div id="estSpotPrice" class="text-2xl font-bold text-brand-gold">$67,500</div>
+                        <p class="text-[11px] text-zinc-500 mt-1">콜/풋 델타 절대값이 0.5에 가장 가까운 행사가를 등가 기준으로 삼습니다.</p>
+                    </div>
+
+                    <div class="border-t border-zinc-800 pt-3">
+                        <span class="text-xs text-zinc-400 block mb-1">동일 거리 OTM 프리미엄 우위</span>
+                        <div id="otmWinnerSummary" class="text-lg font-bold text-white">-</div>
+                        <p id="otmWinnerDetail" class="text-[11px] text-zinc-400 mt-1">ATM에서 같은 거리 떨어진 콜/풋 마크 가격 비교</p>
+                    </div>
+
+                    <div class="border-t border-zinc-800 pt-3">
+                        <span class="text-xs text-zinc-400 block mb-1">등가격 내재변동성 (ATM IV)</span>
+                        <div id="atmIv" class="text-xl font-bold text-white">55.20 %</div>
+                    </div>
+
+                    <div class="border-t border-zinc-800 pt-3">
+                        <span class="text-xs text-zinc-400 block mb-1">25-Delta 리스크 리버설 (Put - Call IV)</span>
+                        <div id="riskReversal" class="text-xl font-bold text-zinc-200">+3.50 %</div>
+                        <p class="text-[11px] text-zinc-500 mt-1">양수(+)면 25-Delta 풋 IV가 콜 IV보다 높음을 의미합니다.</p>
+                    </div>
+
+                    <div class="border-t border-zinc-800 pt-3">
+                        <span class="text-xs text-zinc-400 block mb-1">최대 감마 영역 (Max Gamma Strike)</span>
+                        <div id="maxGammaStrike" class="text-xl font-bold text-brand-call">$68,000</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Theory explanation -->
+            <div
+                class="bg-zinc-900 rounded-xl p-5 border border-zinc-800 text-xs leading-relaxed space-y-3 text-zinc-300">
+                <h3 class="text-sm font-bold text-white">분석 지표 설명</h3>
+                <p>
+                    <strong class="text-brand-gold">동일 거리 OTM 프리미엄 비교:</strong> 이론적 Put-Call Parity와 달리 실제 시장에서는 수급과 꼬리
+                    위험(Tail Risk)으로 인해 ATM ± ΔK 위치의 콜과 풋 가격에 비대칭성이 발생함.
+                </p>
+                <p>
+                    <strong class="text-zinc-100">곡률 (Curvature):</strong> 내재변동성이 행사가에 따라 U자형을 그리는 현상(Smile) 및 기초자산 변화에
+                    따른 델타의 변화율인 감마(Γ)에 해당함.
+                </p>
+                <p>
+                    <strong class="text-zinc-100">브리든-리첸버거 확률분포:</strong> 콜옵션 가격의 행사가 2차 편미분(∂²C / ∂K²)은 만기 시점 기초자산의
+                    위험중립확률밀도함수(PDF)에 비례함.
+                </p>
+            </div>
+        </div>
+
+        <!-- Charts Dashboard Grid (Left on Desktop) -->
+        <div class="xl:col-span-3 xl:order-1 flex flex-col gap-6">
+
+            <!-- Summary Insights Box -->
+            <div class="bg-zinc-900 rounded-xl p-6 border border-zinc-800">
+                <h3 class="text-lg font-bold text-white mb-3">데이터 기반 비대칭성 &amp; 곡률 요약</h3>
+                <div id="dynamicReportContent" class="text-sm text-zinc-300 space-y-3 leading-relaxed">
+                    <p>데이터를 불러오는 중입니다...</p>
+                </div>
+            </div>
+
+            <!-- Tab Content: Charts -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="chartsGrid">
+
+                <!-- Chart 0 (Primary): Same-Distance OTM Call vs Put Premium Comparison -->
+                <div class="bg-zinc-900/90 rounded-xl p-5 border border-zinc-800 flex flex-col md:col-span-2"
+                    id="container-otm">
+                    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-4">
+                        <h3 class="text-base font-bold text-white flex items-center gap-2">
+                            <span class="w-3 h-3 rounded-full bg-brand-gold"></span>
+                            등가(ATM) 동일 거리 외가격(OTM) 콜 vs 풋 프리미엄 비교
+                        </h3>
+                        <span id="otmChartBadge"
+                            class="text-xs px-2.5 py-1 rounded-md bg-zinc-800 text-zinc-300 border border-zinc-700 self-start sm:self-auto">
+                            ATM ± 거리별 마크 가격
+                        </span>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
+                        <div class="lg:col-span-2 h-[300px] w-full relative">
+                            <canvas id="otmCompareChart"></canvas>
+                        </div>
+                        <div class="lg:col-span-1 bg-zinc-950/70 border border-zinc-800 rounded-lg overflow-hidden">
+                            <div
+                                class="px-3 py-2 bg-zinc-800/70 border-b border-zinc-800 text-xs font-semibold text-zinc-200 flex justify-between">
+                                <span>거리별 프리미엄 비교표</span>
+                                <span class="text-zinc-400">단위: BTC</span>
+                            </div>
+                            <div class="max-h-[264px] overflow-y-auto">
+                                <table class="w-full text-xs text-left">
+                                    <thead
+                                        class="text-[11px] text-zinc-400 bg-zinc-900 sticky top-0 border-b border-zinc-800">
+                                        <tr>
+                                            <th class="px-2.5 py-2">거리(±ΔK)</th>
+                                            <th class="px-2 py-2 text-emerald-400">OTM 콜</th>
+                                            <th class="px-2 py-2 text-red-400">OTM 풋</th>
+                                            <th class="px-2.5 py-2 text-right">우위</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="otmTableBody" class="divide-y divide-zinc-800/70 font-mono"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="text-xs text-zinc-400 mt-3 leading-relaxed">
+                        추정 등가격(ATM)으로부터 동일한 가격 거리(±ΔK)만큼 떨어진 외가격 콜(ATM + ΔK)과 외가격 풋(ATM - ΔK)의 마크 가격을 직접 대조합니다. 막대가 더 높은
+                        쪽이 시장에서 상대적으로 더 비싸게 거래되는 방향입니다.
+                    </p>
+                </div>
+
+                <!-- Chart 1: Volatility Smile -->
+                <div class="bg-zinc-900/90 rounded-xl p-5 border border-zinc-800 flex flex-col" id="container-smile">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-base font-bold text-white flex items-center gap-1.5">
+                            <span class="w-3 h-3 rounded-full bg-brand-gold"></span>내재변동성 미소 (IV Smile Curve)
+                        </h3>
+                        <span class="text-xs text-zinc-400">행사가별 IV (%)</span>
+                    </div>
+                    <div class="h-[300px] w-full relative">
+                        <canvas id="ivSmileChart"></canvas>
+                    </div>
+                    <p class="text-xs text-zinc-400 mt-3 leading-relaxed">
+                        행사가에 따른 내재변동성의 곡률(Curvature)을 시각화합니다. 양날개(외가격 영역)가 치솟는 미소(Smile) 형태와 비대칭적 치우침을 관찰할 수 있습니다.
+                    </p>
+                </div>
+
+                <!-- Chart 2: Option Premiums -->
+                <div class="bg-zinc-900/90 rounded-xl p-5 border border-zinc-800 flex flex-col" id="container-premium">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-base font-bold text-white flex items-center gap-1.5">
+                            <span class="w-3 h-3 rounded-full bg-zinc-300"></span>옵션 마크 가격 프로파일 (Premium Profile)
+                        </h3>
+                        <span class="text-xs text-zinc-400">마크 가격 (BTC)</span>
+                    </div>
+                    <div class="h-[300px] w-full relative">
+                        <canvas id="premiumChart"></canvas>
+                    </div>
+                    <p class="text-xs text-zinc-400 mt-3 leading-relaxed">
+                        콜옵션과 풋옵션의 전체 행사가별 프리미엄 분포 곡선입니다. 두 곡선이 교차하는 지점 근처에 등가격(ATM)이 형성됩니다.
+                    </p>
+                </div>
+
+                <!-- Chart 3: State-Price Density (Probability Curvature) -->
+                <div class="bg-zinc-900/90 rounded-xl p-5 border border-zinc-800 flex flex-col" id="container-density">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-base font-bold text-white flex items-center gap-1.5">
+                            <span class="w-3 h-3 rounded-full bg-brand-call"></span>브리든-리첸버거 내재 확률밀도함수 (Implied PDF)
+                        </h3>
+                        <span class="text-xs text-zinc-400">2차 편미분 (∂²C / ∂K²)</span>
+                    </div>
+                    <div class="h-[300px] w-full relative">
+                        <canvas id="densityChart"></canvas>
+                    </div>
+                    <p class="text-xs text-zinc-400 mt-3 leading-relaxed">
+                        옵션 가격 곡선의 2차 편미분(곡률)에서 도출한 위험중립확률분포입니다. 비대칭성과 왜도(Skewness)를 통해 만기 가격의 상하방 확률 강도를 파악합니다.
+                    </p>
+                </div>
+
+                <!-- Chart 4: Gamma & Delta Profile -->
+                <div class="bg-zinc-900/90 rounded-xl p-5 border border-zinc-800 flex flex-col" id="container-gamma">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-base font-bold text-white flex items-center gap-1.5">
+                            <span class="w-3 h-3 rounded-full bg-purple-400"></span>민감도 프로파일 (Delta &amp; Gamma Profile)
+                        </h3>
+                        <span class="text-xs text-zinc-400">민감도 수치</span>
+                    </div>
+                    <div class="h-[300px] w-full relative">
+                        <canvas id="gammaChart"></canvas>
+                    </div>
+                    <p class="text-xs text-zinc-400 mt-3 leading-relaxed">
+                        1차 민감도인 델타와 2차 곡률 가속도인 감마(Γ)의 분포입니다. 감마는 등가격 부근에서 극대화되며 급격한 델타 변화 구간을 나타냅니다.
+                    </p>
+                </div>
+
+            </div>
+
+
+
+        </div>
+
+    </main>
+
+    <!-- App JavaScript Logic -->
+    <script>
+        let charts = {};
+        let currentOptionsData = [];
+
+        window.onload = function () {
+            const sampleData = generateSampleData();
+            processAndRenderData(sampleData, "샘플 데이터 (모델링)");
+
+            document.getElementById('csvFileInput').addEventListener('change', handleFileSelect, false);
+            document.getElementById('loadSampleBtn').addEventListener('click', () => {
+                const sample = generateSampleData();
+                processAndRenderData(sample, "샘플 데이터 (모델링)");
+            });
+        };
+
+        function handleFileSelect(evt) {
+            const file = evt.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const text = e.target.result;
+                try {
+                    const parsedData = parseDeribitCSV(text);
+                    if (parsedData && parsedData.length > 0) {
+                        processAndRenderData(parsedData, file.name);
+                    } else {
+                        alert("CSV 파일을 파싱할 수 없습니다. Deribit 옵션 내보내기 형식인지 확인해주세요.");
+                    }
+                } catch (err) {
+                    alert("에러 발생: " + err.message);
+                }
+            };
+            reader.readAsText(file);
+            evt.target.value = '';
+        }
+
+        function splitCsvLine(line) {
+            const cols = [];
+            let insideQuote = false;
+            let currentStr = "";
+            for (let j = 0; j < line.length; j++) {
+                const char = line[j];
+                if (char === '"') {
+                    insideQuote = !insideQuote;
+                } else if (char === ',' && !insideQuote) {
+                    cols.push(currentStr.trim());
+                    currentStr = "";
+                } else {
+                    currentStr += char;
+                }
+            }
+            cols.push(currentStr.trim());
+            return cols;
+        }
+
+        // Deribit Options Export CSV Parser
+        function parseDeribitCSV(text) {
+            const lines = text.split(/\r?\n/);
+            if (lines.length < 2) return null;
+
+            const rawHeader = lines[0].replace(/^\uFEFF/, '');
+            const headers = splitCsvLine(rawHeader);
+
+            const prodIdx = headers.findIndex(h => h === '상품' || h.toLowerCase() === 'instrument');
+            const deltaIdx = headers.findIndex(h => h === 'Δ|델타' || h.toLowerCase() === 'delta');
+            const markIdx = headers.findIndex(h => h === '마크' || h.toLowerCase() === 'mark');
+            const gammaIdx = headers.findIndex(h => h === '감마' || h.toLowerCase() === 'gamma');
+            const bidIvIdx = headers.findIndex(h => h === 'IV 매입' || h.toLowerCase() === 'bid iv');
+            const askIvIdx = headers.findIndex(h => h === 'IV 요구' || h.toLowerCase() === 'ask iv');
+            const bidIdx = headers.findIndex(h => h === '매수' || h.toLowerCase() === 'bid');
+            const askIdx = headers.findIndex(h => h === '매도' || h.toLowerCase() === 'ask');
+
+            if (prodIdx === -1 || markIdx === -1) {
+                throw new Error("필수 열(상품/Instrument, 마크/Mark)을 CSV 헤더에서 찾을 수 없습니다.");
+            }
+
+            const data = [];
+
+            for (let i = 1; i < lines.length; i++) {
+                if (!lines[i].trim()) continue;
+                const cols = splitCsvLine(lines[i]);
+                if (cols.length <= Math.max(prodIdx, markIdx)) continue;
+
+                const product = cols[prodIdx];
+                if (!product) continue;
+
+                // Match pattern: BTC-20NOV26-55000-C
+                const match = product.match(/^([A-Z]+)-(\d+[A-Z]+\d+)-(\d+)-([CP])$/);
+                if (!match) continue;
+
+                const asset = match[1];
+                const expiry = match[2];
+                const strike = parseInt(match[3], 10);
+                const type = match[4];
+
+                const delta = deltaIdx !== -1 ? (parseFloat(cols[deltaIdx]) || 0) : 0;
+                const mark = parseFloat(cols[markIdx]) || 0;
+                const gamma = gammaIdx !== -1 ? (parseFloat(cols[gammaIdx]) || 0) : 0;
+                const bidIv = bidIvIdx !== -1 ? (parseFloat(cols[bidIvIdx]) || 0) : 0;
+                const askIv = askIvIdx !== -1 ? (parseFloat(cols[askIvIdx]) || 0) : 0;
+                const bid = bidIdx !== -1 ? (parseFloat(cols[bidIdx]) || 0) : 0;
+                const ask = askIdx !== -1 ? (parseFloat(cols[askIdx]) || 0) : 0;
+
+                let iv = 0;
+                if (bidIv > 0 && askIv > 0) {
+                    iv = (bidIv + askIv) / 2;
+                } else if (bidIv > 0) {
+                    iv = bidIv;
+                } else if (askIv > 0) {
+                    iv = askIv;
+                }
+
+                data.push({
+                    product,
+                    asset,
+                    expiry,
+                    strike,
+                    type,
+                    delta,
+                    mark,
+                    gamma,
+                    iv,
+                    bid,
+                    ask
+                });
+            }
+            return data;
+        }
+
+        // Mathematical Black-Scholes Data Generator for fallback default
+        function generateSampleData() {
+            const data = [];
+            const S = 67500;
+            const T = 5 / 365;
+            const r = 0.05;
+
+            function normalCDF(x) {
+                const a1 = 0.319381530, a2 = -0.356563782, a3 = 1.781477937;
+                const a4 = -1.821255978, a5 = 1.330274429;
+                const L = Math.abs(x);
+                const K = 1.0 / (1.0 + 0.2316419 * L);
+                let d = 1.0 - 1.0 / Math.sqrt(2 * Math.PI) * Math.exp(-L * L / 2) * (a1 * K + a2 * K * K + a3 * Math.pow(K, 3) + a4 * Math.pow(K, 4) + a5 * Math.pow(K, 5));
+                if (x < 0) d = 1.0 - d;
+                return d;
+            }
+
+            function getBS(S, K, T, r, sigma, type) {
+                const d1 = (Math.log(S / K) + (r + 0.5 * sigma * sigma) * T) / (sigma * Math.sqrt(T));
+                const d2 = d1 - sigma * Math.sqrt(T);
+                const nd1 = normalCDF(d1);
+                const nd2 = normalCDF(d2);
+
+                let price = 0;
+                let delta = 0;
+                if (type === 'C') {
+                    price = S * nd1 - K * Math.exp(-r * T) * nd2;
+                    delta = nd1;
+                } else {
+                    price = K * Math.exp(-r * T) * (1 - nd2) - S * (1 - nd1);
+                    delta = nd1 - 1;
+                }
+
+                const pdf_d1 = (1.0 / Math.sqrt(2 * Math.PI)) * Math.exp(-d1 * d1 / 2);
+                const gamma = pdf_d1 / (S * sigma * Math.sqrt(T));
+                return { price: price / S, delta, gamma };
+            }
+
+            for (let K = 52000; K <= 81000; K += 1000) {
+                const z = (K - S) / S;
+                let iv = 0.55 + 2.1 * z * z;
+                if (z < 0) {
+                    iv += -0.18 * z;
+                } else {
+                    iv += 0.04 * z;
+                }
+
+                const callInfo = getBS(S, K, T, r, iv, 'C');
+                const putInfo = getBS(S, K, T, r, iv, 'P');
+
+                data.push({
+                    product: `BTC-12JUN26-${K}-C`,
+                    asset: 'BTC',
+                    expiry: '12JUN26',
+                    strike: K,
+                    type: 'C',
+                    delta: callInfo.delta,
+                    mark: callInfo.price,
+                    gamma: callInfo.gamma,
+                    iv: iv * 100,
+                    bid: callInfo.price * 0.98,
+                    ask: callInfo.price * 1.02
+                });
+
+                data.push({
+                    product: `BTC-12JUN26-${K}-P`,
+                    asset: 'BTC',
+                    expiry: '12JUN26',
+                    strike: K,
+                    type: 'P',
+                    delta: putInfo.delta,
+                    mark: putInfo.price,
+                    gamma: putInfo.gamma,
+                    iv: iv * 100,
+                    bid: putInfo.price * 0.98,
+                    ask: putInfo.price * 1.02
+                });
+            }
+
+            return data;
+        }
+
+        function processAndRenderData(rawOptions, sourceName) {
+            currentOptionsData = rawOptions;
+
+            const strikes = [...new Set(rawOptions.map(d => d.strike))].sort((a, b) => a - b);
+            const primaryAsset = rawOptions[0]?.asset || 'BTC';
+            const primaryExpiry = rawOptions[0]?.expiry || '-';
+
+            // Compute most common strike step
+            const stepCounts = {};
+            for (let i = 1; i < strikes.length; i++) {
+                const diff = strikes[i] - strikes[i - 1];
+                stepCounts[diff] = (stepCounts[diff] || 0) + 1;
+            }
+            const modeStep = Object.keys(stepCounts).sort((a, b) => stepCounts[b] - stepCounts[a])[0] || 1000;
+
+            document.getElementById('assetBadge').innerText = primaryAsset;
+            document.getElementById('dataSourceLabel').innerText = sourceName;
+            document.getElementById('dataCountLabel').innerText = rawOptions.length + "개 행";
+            document.getElementById('expiryLabel').innerText = primaryExpiry;
+            document.getElementById('strikeStepLabel').innerText = Number(modeStep).toLocaleString() + " USD";
+
+            // Determine ATM Strike: closest Call Delta to 0.5 (or smallest |Call - Put| mark diff)
+            let minDiff = Infinity;
+            let atmStrike = strikes[Math.floor(strikes.length / 2)] || 0;
+            let atmIvVal = 0;
+
+            rawOptions.forEach(opt => {
+                if (opt.type === 'C' && opt.delta > 0) {
+                    const diff = Math.abs(opt.delta - 0.5);
+                    if (diff < minDiff) {
+                        minDiff = diff;
+                        atmStrike = opt.strike;
+                        atmIvVal = opt.iv;
+                    }
+                }
+            });
+
+            document.getElementById('estSpotPrice').innerText = "$" + atmStrike.toLocaleString();
+            document.getElementById('atmIv').innerText = atmIvVal > 0 ? (atmIvVal.toFixed(2) + " %") : "-";
+
+            // 25-Delta Risk Reversal
+            let call25Iv = atmIvVal;
+            let put25Iv = atmIvVal;
+            let minCallDeltaDiff = Infinity;
+            let minPutDeltaDiff = Infinity;
+
+            rawOptions.forEach(opt => {
+                if (opt.type === 'C' && opt.iv > 0) {
+                    const diff = Math.abs(opt.delta - 0.25);
+                    if (diff < minCallDeltaDiff) {
+                        minCallDeltaDiff = diff;
+                        call25Iv = opt.iv;
+                    }
+                } else if (opt.type === 'P' && opt.iv > 0) {
+                    const diff = Math.abs(opt.delta + 0.25);
+                    if (diff < minPutDeltaDiff) {
+                        minPutDeltaDiff = diff;
+                        put25Iv = opt.iv;
+                    }
+                }
+            });
+
+            const rr = put25Iv - call25Iv;
+            const rrEl = document.getElementById('riskReversal');
+            rrEl.innerText = (rr >= 0 ? "+" : "") + rr.toFixed(2) + " %";
+            rrEl.className = "text-xl font-bold " + (rr > 0 ? "text-red-400" : "text-emerald-400");
+
+            // Max Gamma strike detection
+            let maxGamma = -1;
+            let maxGammaStrike = atmStrike;
+            rawOptions.forEach(opt => {
+                if (opt.gamma > maxGamma) {
+                    maxGamma = opt.gamma;
+                    maxGammaStrike = opt.strike;
+                }
+            });
+            document.getElementById('maxGammaStrike').innerText = "$" + maxGammaStrike.toLocaleString();
+
+            // Build lookup maps by strike
+            const callByStrike = {};
+            const putByStrike = {};
+            rawOptions.forEach(o => {
+                if (o.type === 'C') callByStrike[o.strike] = o;
+                if (o.type === 'P') putByStrike[o.strike] = o;
+            });
+
+            // Core Analysis: Same-Distance OTM Call (ATM + dK) vs OTM Put (ATM - dK)
+            const otmPairs = [];
+            strikes.forEach(k => {
+                if (k <= atmStrike) return;
+                const dist = k - atmStrike;
+                const otmCall = callByStrike[atmStrike + dist];
+                const otmPut = putByStrike[atmStrike - dist];
+
+                if (otmCall && otmPut && (otmCall.mark > 0 || otmPut.mark > 0)) {
+                    const diff = otmPut.mark - otmCall.mark;
+                    const ratioPct = otmCall.mark > 0 ? ((otmPut.mark - otmCall.mark) / otmCall.mark) * 100 : 0;
+                    const winner = otmPut.mark > otmCall.mark ? 'PUT' : (otmCall.mark > otmPut.mark ? 'CALL' : 'EQUAL');
+                    otmPairs.push({
+                        dist,
+                        callStrike: atmStrike + dist,
+                        putStrike: atmStrike - dist,
+                        callMark: otmCall.mark,
+                        putMark: otmPut.mark,
+                        diff,
+                        ratioPct,
+                        winner
+                    });
+                }
+            });
+
+            updateOtmSummaryAndTable(otmPairs, atmStrike, primaryAsset, primaryExpiry, rr, maxGammaStrike);
+
+            // Prepare series for remaining 4 charts
+            const callPrices = [];
+            const putPrices = [];
+            const callIvs = [];
+            const putIvs = [];
+            const callGammas = [];
+            const callDeltas = [];
+
+            strikes.forEach(K => {
+                const call = callByStrike[K];
+                const put = putByStrike[K];
+
+                callPrices.push(call ? call.mark : null);
+                putPrices.push(put ? put.mark : null);
+                callIvs.push(call && call.iv > 0 ? call.iv : null);
+                putIvs.push(put && put.iv > 0 ? put.iv : null);
+                callGammas.push(call ? call.gamma : null);
+                callDeltas.push(call ? call.delta : null);
+            });
+
+            // Breeden-Litzenberger Curvature Probability Distribution (supports non-uniform strike spacing)
+            const pdfStrikes = [];
+            const pdfValues = [];
+
+            for (let i = 1; i < strikes.length - 1; i++) {
+                const K_prev = strikes[i - 1];
+                const K_curr = strikes[i];
+                const K_next = strikes[i + 1];
+
+                const c_prev = callPrices[i - 1];
+                const c_curr = callPrices[i];
+                const c_next = callPrices[i + 1];
+
+                if (c_prev !== null && c_curr !== null && c_next !== null) {
+                    const dK1 = K_curr - K_prev;
+                    const dK2 = K_next - K_curr;
+                    if (dK1 > 0 && dK2 > 0) {
+                        const d2c_dK2 = (2 / (dK1 + dK2)) * (((c_next - c_curr) / dK2) - ((c_curr - c_prev) / dK1));
+                        pdfStrikes.push(K_curr);
+                        pdfValues.push(Math.max(0, d2c_dK2 * 100000000));
+                    }
+                }
+            }
+
+            // Render all 5 charts
+            renderOtmCompareChart(otmPairs, primaryAsset);
+            renderSmileChart(strikes, callIvs, putIvs);
+            renderPremiumChart(strikes, callPrices, putPrices, primaryAsset);
+            renderDensityChart(pdfStrikes, pdfValues);
+            renderGammaChart(strikes, callGammas, callDeltas);
+        }
+
+        function updateOtmSummaryAndTable(otmPairs, atmStrike, asset, expiry, rr, maxGammaStrike) {
+            const tbody = document.getElementById('otmTableBody');
+            const summaryEl = document.getElementById('otmWinnerSummary');
+            const detailEl = document.getElementById('otmWinnerDetail');
+            const badgeEl = document.getElementById('otmChartBadge');
+            const reportEl = document.getElementById('dynamicReportContent');
+
+            tbody.innerHTML = '';
+
+            if (otmPairs.length === 0) {
+                summaryEl.innerText = "대칭 쌍 없음";
+                summaryEl.className = "text-lg font-bold text-zinc-400";
+                detailEl.innerText = "ATM 기준 동일 거리 콜/풋 쌍을 찾지 못했습니다.";
+                badgeEl.innerText = `ATM: $${atmStrike.toLocaleString()}`;
+                return;
+            }
+
+            let putWins = 0;
+            let callWins = 0;
+            let sumPut = 0;
+            let sumCall = 0;
+
+            otmPairs.forEach(p => {
+                if (p.winner === 'PUT') putWins++;
+                else if (p.winner === 'CALL') callWins++;
+                sumPut += p.putMark;
+                sumCall += p.callMark;
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-zinc-900/70";
+                const diffLabel = p.winner === 'PUT'
+                    ? `<span class="text-red-400 font-semibold">Put +${Math.abs(p.ratioPct).toFixed(1)}%</span>`
+                    : (p.winner === 'CALL'
+                        ? `<span class="text-emerald-400 font-semibold">Call +${((p.callMark - p.putMark) / (p.putMark || 1) * 100).toFixed(1)}%</span>`
+                        : `<span class="text-zinc-400">동일</span>`);
+
+                tr.innerHTML = `
+                    <td class="px-2.5 py-2 text-zinc-300">±$${p.dist.toLocaleString()}</td>
+                    <td class="px-2 py-2 text-zinc-200">${p.callMark.toFixed(4)}</td>
+                    <td class="px-2 py-2 text-zinc-200">${p.putMark.toFixed(4)}</td>
+                    <td class="px-2.5 py-2 text-right">${diffLabel}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            const totalRatio = sumPut >= sumCall
+                ? ((sumPut - sumCall) / (sumCall || 1)) * 100
+                : ((sumCall - sumPut) / (sumPut || 1)) * 100;
+
+            if (sumPut > sumCall) {
+                summaryEl.innerText = `풋(Put) 프리미엄 우위 (+${totalRatio.toFixed(1)}%)`;
+                summaryEl.className = "text-lg font-bold text-red-400";
+                detailEl.innerText = `비교 가능한 ${otmPairs.length}개 거리 중 ${putWins}개 구간에서 OTM Put Option이 더 비쌉니다.`;
+            } else if (sumCall > sumPut) {
+                summaryEl.innerText = `콜(Call) 프리미엄 우위 (+${totalRatio.toFixed(1)}%)`;
+                summaryEl.className = "text-lg font-bold text-emerald-400";
+                detailEl.innerText = `비교 가능한 ${otmPairs.length}개 거리 중 ${callWins}개 구간에서 OTM Call Option이 더 비쌉니다.`;
+            } else {
+                summaryEl.innerText = `콜·풋 프리미엄 균형`;
+                summaryEl.className = "text-lg font-bold text-zinc-200";
+                detailEl.innerText = `동일 거리 OTM 콜과 풋의 총 프리미엄 합이 동일합니다.`;
+            }
+
+            badgeEl.innerText = `ATM $${atmStrike.toLocaleString()} 기준 (${otmPairs.length}개 거리 쌍)`;
+
+            const nearPair = otmPairs[0];
+            const dominantSide = sumPut >= sumCall ? '외가격 풋(OTM Put)' : '외가격 콜(OTM Call)';
+            const dominantReason = sumPut >= sumCall
+                ? '하방 변동성 경계(Tail Risk Hedge) 수요가 상방 투기 수요보다 강하게 반영된 상태입니다.'
+                : '상방 돌파 기대감(Upside Skew)이 하방 헤지 수요보다 강하게 반영된 상태입니다.';
+
+            reportEl.innerHTML = `
+                <p>
+                    <strong class="text-brand-gold">동일 거리 OTM 프리미엄 비대칭성 (${asset} ${expiry}):</strong>
+                    등가격($${atmStrike.toLocaleString()}) 기준으로 같은 거리만큼 떨어진 외가격 옵션을 합산 비교한 결과, 현재 시장은 <span class="text-white font-semibold">${dominantSide}</span>이 평균 <span class="text-white font-semibold">${totalRatio.toFixed(1)}%</span> 더 비싸게 거래되고 있음. ${dominantReason}
+                </p>
+                <p>
+                    <strong class="text-zinc-100">최근접 OTM 구간 (±$${nearPair.dist.toLocaleString()}):</strong>
+                    콜(${nearPair.callStrike.toLocaleString()}-C) 마크 가격은 <span class="font-mono text-emerald-400">${nearPair.callMark.toFixed(4)} ${asset}</span>, 풋(${nearPair.putStrike.toLocaleString()}-P) 마크 가격은 <span class="font-mono text-red-400">${nearPair.putMark.toFixed(4)} ${asset}</span>로 현실 시장에서 Put-Call Parity 기반 대칭 가정이 성립하지 않음을 확인.
+                </p>
+                <p>
+                    <strong class="text-zinc-100">감마 및 스큐 지표:</strong>
+                    25-Delta Risk Reversal은 <span class="font-mono text-white">${rr >= 0 ? '+' : ''}${rr.toFixed(2)}%</span>이며, Max Gamma Strike는 <span class="font-mono text-brand-call">$${maxGammaStrike.toLocaleString()}</span> 부근.
+                </p>
+            `;
+        }
+
+        // Chart 0: Same-Distance OTM Call vs Put Premium Comparison
+        function renderOtmCompareChart(otmPairs, asset) {
+            if (charts.otm) charts.otm.destroy();
+
+            const ctx = document.getElementById('otmCompareChart').getContext('2d');
+            const labels = otmPairs.map(p => `±$${p.dist.toLocaleString()}`);
+            const callData = otmPairs.map(p => p.callMark);
+            const putData = otmPairs.map(p => p.putMark);
+
+            charts.otm = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'OTM Call (ATM + ΔK)',
+                            data: callData,
+                            backgroundColor: 'rgba(16, 185, 129, 0.75)',
+                            borderColor: '#10B981',
+                            borderWidth: 1.5,
+                            borderRadius: 4
+                        },
+                        {
+                            label: 'OTM Put (ATM - ΔK)',
+                            data: putData,
+                            backgroundColor: 'rgba(239, 68, 68, 0.75)',
+                            borderColor: '#EF4444',
+                            borderWidth: 1.5,
+                            borderRadius: 4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { labels: { color: '#A1A1AA' } },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                afterBody: function (items) {
+                                    const idx = items[0]?.dataIndex;
+                                    if (idx === undefined) return '';
+                                    const pair = otmPairs[idx];
+                                    if (!pair) return '';
+                                    const diff = pair.putMark - pair.callMark;
+                                    const winner = diff > 0 ? 'Put 우위' : (diff < 0 ? 'Call 우위' : '동일');
+                                    return `\n[${winner}] 차이: ${Math.abs(diff).toFixed(4)} ${asset}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'ATM 기준 거리 (±ΔK)', color: '#A1A1AA' },
+                            grid: { color: '#27272A' },
+                            ticks: { color: '#A1A1AA' }
+                        },
+                        y: {
+                            title: { display: true, text: `마크 가격 (${asset})`, color: '#A1A1AA' },
+                            grid: { color: '#27272A' },
+                            ticks: { color: '#A1A1AA' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Chart 1: IV Smile Plotting
+        function renderSmileChart(labels, callIvs, putIvs) {
+            if (charts.smile) charts.smile.destroy();
+
+            const ctx = document.getElementById('ivSmileChart').getContext('2d');
+            charts.smile = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Call IV',
+                            data: callIvs,
+                            borderColor: '#10B981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.35,
+                            pointRadius: 2
+                        },
+                        {
+                            label: 'Put IV',
+                            data: putIvs,
+                            borderColor: '#EF4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.35,
+                            pointRadius: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { labels: { color: '#A1A1AA' } },
+                        tooltip: { mode: 'index', intersect: false }
+                    },
+                    scales: {
+                        x: { grid: { color: '#27272A' }, ticks: { color: '#A1A1AA' } },
+                        y: {
+                            title: { display: true, text: '내재변동성 (%)', color: '#A1A1AA' },
+                            grid: { color: '#27272A' },
+                            ticks: { color: '#A1A1AA' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Chart 2: Option Premiums
+        function renderPremiumChart(labels, callPrices, putPrices, asset) {
+            if (charts.premium) charts.premium.destroy();
+
+            const ctx = document.getElementById('premiumChart').getContext('2d');
+            charts.premium = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Call Premium',
+                            data: callPrices,
+                            borderColor: '#10B981',
+                            borderWidth: 2,
+                            tension: 0.2,
+                            pointRadius: 0
+                        },
+                        {
+                            label: 'Put Premium',
+                            data: putPrices,
+                            borderColor: '#EF4444',
+                            borderWidth: 2,
+                            tension: 0.2,
+                            pointRadius: 0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { labels: { color: '#A1A1AA' } },
+                        tooltip: { mode: 'index', intersect: false }
+                    },
+                    scales: {
+                        x: { grid: { color: '#27272A' }, ticks: { color: '#A1A1AA' } },
+                        y: {
+                            title: { display: true, text: `프리미엄 가격 (${asset})`, color: '#A1A1AA' },
+                            grid: { color: '#27272A' },
+                            ticks: { color: '#A1A1AA' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Chart 3: Probability Density (Curvature)
+        function renderDensityChart(labels, dataValues) {
+            if (charts.density) charts.density.destroy();
+
+            const ctx = document.getElementById('densityChart').getContext('2d');
+            charts.density = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '위험중립 확률분포 (Implied PDF)',
+                        data: dataValues,
+                        borderColor: '#D4D4D8',
+                        backgroundColor: 'rgba(212, 212, 216, 0.16)',
+                        fill: true,
+                        borderWidth: 2.5,
+                        tension: 0.4,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { labels: { color: '#A1A1AA' } },
+                        tooltip: { mode: 'index', intersect: false }
+                    },
+                    scales: {
+                        x: { grid: { color: '#27272A' }, ticks: { color: '#A1A1AA' } },
+                        y: {
+                            title: { display: true, text: '확률 밀도 강도 (상대적 수치)', color: '#A1A1AA' },
+                            grid: { color: '#27272A' },
+                            ticks: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Chart 4: Delta & Gamma Sensitivity
+        function renderGammaChart(labels, gammas, deltas) {
+            if (charts.gamma) charts.gamma.destroy();
+
+            const ctx = document.getElementById('gammaChart').getContext('2d');
+            charts.gamma = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Gamma (곡률 속도 - 좌축)',
+                            data: gammas,
+                            borderColor: '#A78BFA',
+                            backgroundColor: 'rgba(167, 139, 250, 0.12)',
+                            fill: true,
+                            borderWidth: 2,
+                            yAxisID: 'y-gamma',
+                            tension: 0.3,
+                            pointRadius: 0
+                        },
+                        {
+                            label: 'Call Delta (우축)',
+                            data: deltas,
+                            borderColor: '#71717A',
+                            borderWidth: 2.5,
+                            borderDash: [5, 5],
+                            yAxisID: 'y-delta',
+                            tension: 0.2,
+                            pointRadius: 0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { labels: { color: '#A1A1AA' } },
+                        tooltip: { mode: 'index', intersect: false }
+                    },
+                    scales: {
+                        x: { grid: { color: '#27272A' }, ticks: { color: '#A1A1AA' } },
+                        'y-gamma': {
+                            type: 'linear',
+                            position: 'left',
+                            title: { display: true, text: 'Gamma', color: '#A1A1AA' },
+                            grid: { color: '#27272A' },
+                            ticks: { color: '#A1A1AA' }
+                        },
+                        'y-delta': {
+                            type: 'linear',
+                            position: 'right',
+                            title: { display: true, text: 'Delta', color: '#A1A1AA' },
+                            grid: { drawOnChartArea: false },
+                            ticks: { color: '#A1A1AA' }
+                        }
+                    }
+                }
+            });
+        }
+
+    </script>
+</body>
+
+</html>

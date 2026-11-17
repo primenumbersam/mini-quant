@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TradingView Pine Script v6 — Bento Cookbook</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;600&display=swap');
+
+    :root {
+      --bg: #f4f0e6;
+      --ink: #0f0f0f;
+      --card-white: #ffffff;
+      --yellow: #ffde59;
+      --mint: #7bf1a8;
+      --sky: #7dd3fc;
+      --coral: #ff7b7b;
+      --lavender: #d8b4fe;
+      --code-bg: #141414;
+      --border: 3px solid #0f0f0f;
+      --shadow: 6px 6px 0px #0f0f0f;
+      --shadow-sm: 3px 3px 0px #0f0f0f;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      background-image: radial-gradient(#0f0f0f 1px, transparent 1px);
+      background-size: 24px 24px;
+      color: var(--ink);
+      font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      padding: 28px 16px 64px;
+      line-height: 1.5;
+    }
+
+    .container {
+      max-width: 1280px;
+      margin: 0 auto;
+    }
+
+    /* Bento Grid */
+    .bento-grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 20px;
+    }
+
+    .card {
+      background: var(--card-white);
+      border: var(--border);
+      box-shadow: var(--shadow);
+      border-radius: 14px;
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.14s ease, box-shadow 0.14s ease;
+    }
+
+    .card-hero {
+      grid-column: span 8;
+      background: var(--yellow);
+    }
+
+    .card-howto {
+      grid-column: span 4;
+      background: var(--lavender);
+    }
+
+    .card-script {
+      grid-column: span 12;
+      background: var(--card-white);
+      justify-content: space-between;
+    }
+
+    @media (min-width: 768px) {
+      .card-script {
+        grid-column: span 6;
+      }
+    }
+
+    @media (min-width: 1024px) {
+      .card-script {
+        grid-column: span 4;
+      }
+    }
+
+    @media (max-width: 900px) {
+
+      .card-hero,
+      .card-howto {
+        grid-column: span 12;
+      }
+    }
+
+    /* Typography & Badges */
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      border: 2px solid var(--ink);
+      box-shadow: 2px 2px 0px var(--ink);
+      border-radius: 6px;
+      background: var(--card-white);
+    }
+
+    .badge-mint {
+      background: var(--mint);
+    }
+
+    .badge-sky {
+      background: var(--sky);
+    }
+
+    .badge-coral {
+      background: var(--coral);
+    }
+
+    .badge-yellow {
+      background: var(--yellow);
+    }
+
+    h1 {
+      font-size: clamp(26px, 4vw, 38px);
+      font-weight: 700;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      margin-bottom: 12px;
+    }
+
+    h2 {
+      font-size: 20px;
+      font-weight: 700;
+      line-height: 1.25;
+      margin-bottom: 6px;
+    }
+
+    .lead {
+      font-size: 15px;
+      font-weight: 500;
+      max-width: 68ch;
+    }
+
+    .howto-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 8px;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .howto-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      background: var(--card-white);
+      border: 2px solid var(--ink);
+      border-radius: 8px;
+      padding: 8px 10px;
+      box-shadow: 2px 2px 0px var(--ink);
+    }
+
+    .step-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 22px;
+      height: 22px;
+      border-radius: 4px;
+      background: var(--ink);
+      color: var(--yellow);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    /* Script Card Header & Controls */
+    .script-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .script-desc {
+      font-size: 14px;
+      color: #333333;
+      margin-bottom: 12px;
+    }
+
+    .tag-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+
+    .tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      background: #f3f4f6;
+      border: 2px solid var(--ink);
+      border-radius: 999px;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .btn {
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 8px 14px;
+      border: 2.5px solid var(--ink);
+      border-radius: 8px;
+      box-shadow: var(--shadow-sm);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--yellow);
+      color: var(--ink);
+      transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.1s ease;
+    }
+
+    .btn:hover {
+      transform: translate(-1px, -1px);
+      box-shadow: 4px 4px 0px var(--ink);
+    }
+
+    .btn:active {
+      transform: translate(2px, 2px);
+      box-shadow: 1px 1px 0px var(--ink);
+    }
+
+    .btn-secondary {
+      background: var(--card-white);
+    }
+
+    .btn-copied {
+      background: var(--mint) !important;
+    }
+
+    /* Code Box */
+    .code-box {
+      background: var(--code-bg);
+      color: #f8f8f2;
+      border: var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .code-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: #222222;
+      border-bottom: 2px solid #000000;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: #a3a3a3;
+    }
+
+    .dots {
+      display: flex;
+      gap: 6px;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      border: 1.5px solid #000000;
+    }
+
+    pre {
+      margin: 0;
+      padding: 14px;
+      overflow: auto;
+      max-height: 360px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12.5px;
+      line-height: 1.55;
+      tab-size: 4;
+    }
+
+    /* Modal for Full Code Inspection */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 15, 15, 0.72);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 100;
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .modal-panel {
+      width: 100%;
+      max-width: 920px;
+      max-height: 90vh;
+      background: var(--card-white);
+      border: var(--border);
+      box-shadow: 10px 10px 0px #000000;
+      border-radius: 14px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .modal-panel pre {
+      max-height: 65vh;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--mint);
+      color: var(--ink);
+      border: var(--border);
+      box-shadow: var(--shadow-sm);
+      border-radius: 10px;
+      padding: 10px 16px;
+      font-weight: 700;
+      font-size: 14px;
+      transform: translateY(120px);
+      opacity: 0;
+      transition: transform 0.2s ease, opacity 0.2s ease;
+      z-index: 200;
+    }
+
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="bento-grid" id="bento-root">
+
+      <!-- Hero Card -->
+      <section class="card card-hero">
+        <div class="badge-row">
+          <span class="badge">Pine Script v6</span>
+          <span class="badge badge-sky">Copy &amp; Paste</span>
+        </div>
+        <h1>TradingView PineScript<br>Indicators &amp; Strategy 사용예시</h1>
+        <p class="lead">
+          TradingView 무료 플랜에서는 차트당 동시 적용 가능한 지표 개수가 제한된다.
+          하나의 indicator() 안에 여러 계산을 통합하거나, strategy() 함수로 진입/청산 로직을 묶으면 유료 플랜 없이도 복합 지표 시각화와 전략 백테스팅을 동시에 수행할 수 있다.
+        </p>
+      </section>
+
+      <!-- How-to Card -->
+      <aside class="card card-howto">
+        <div class="badge-row">
+          <span class="badge badge-yellow">Quick Guide</span>
+        </div>
+        <h2>사용법 (3-Step)</h2>
+        <ul class="howto-list">
+          <li class="howto-item">
+            <span class="step-num">1</span>
+            <span>원하는 카드에서 <strong>복사</strong> 버튼을 클릭.</span>
+          </li>
+          <li class="howto-item">
+            <span class="step-num">2</span>
+            <span>TW <strong>Pine Editor</strong>에 붙여넣기.</span>
+          </li>
+          <li class="howto-item">
+            <span class="step-num">3</span>
+            <span><strong>Add to chart</strong>를 눌러 결과를 확인 .</span>
+          </li>
+        </ul>
+      </aside>
+
+      <!-- Script Cards injected by JS -->
+    </div>
+  </div>
+
+  <!-- Full View Modal -->
+  <div class="modal-backdrop" id="code-modal">
+    <div class="modal-panel">
+      <div class="script-header" style="margin-bottom: 0;">
+        <div>
+          <h2 id="modal-title">Script</h2>
+          <p id="modal-subtitle" class="script-desc" style="margin-bottom: 0;"></p>
+        </div>
+        <div class="btn-group">
+          <button type="button" class="btn" id="modal-copy-btn">복사</button>
+          <button type="button" class="btn btn-secondary" id="modal-close-btn">닫기</button>
+        </div>
+      </div>
+      <div class="code-box">
+        <div class="code-topbar">
+          <div class="dots">
+            <span class="dot" style="background:#ff5f56"></span>
+            <span class="dot" style="background:#ffbd2e"></span>
+            <span class="dot" style="background:#27c93f"></span>
+          </div>
+          <span>pine-script-v6.pine</span>
+        </div>
+        <pre><code id="modal-code"></code></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast">클립보드에 복사되었습니다.</div>
+
+  <script>
+    const SCRIPTS = [
+      {
+        id: "candle-amplitude",
+        title: "Candle Amplitude",
+        type: "INDICATOR",
+        badgeClass: "badge-mint",
+        subtitle: "단일 봉 진폭 및 전일 포함 2개 봉 통합 진폭(%)을 Status Line과 Data Window에 출력하는 경량 커스텀 지표",
+        tags: ["overlay=true", "High-Low Range", "2-Bar Merged %", "Status Line"],
+        code: `// This Pine Script® code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © primenumbersam
+
+//@version=6
+indicator("Candle Amplitude", overlay = true, format = format.inherit)
+
+// 1. 기본 가격 변수
+float prev_close = close[1]
+float prev_high  = high[1]
+float prev_low   = low[1]
+
+// (1) 당일 단일 봉 진폭
+float amp = high - low
+bool is_bullish = close >= open
+float signed_factor = is_bullish ? 1.0 : -1.0
+float amp_pct = (open != 0.0) ? (amp / open) * signed_factor * 100.0 : 0.0
+
+// (2) 2개 봉 통합 진폭 (Today & Prev 결합)
+// max(high_today, high_prev) - min(low_today, low_prev)
+float merged_high = not na(prev_high) ? math.max(high, prev_high) : high
+float merged_low  = not na(prev_low)  ? math.min(low, prev_low)   : low
+float amp_prev_range = merged_high - merged_low
+
+// 분모: prev_close 적용 (이전 종가 대비 현재 종가 상승/하락에 따른 부호 결정)
+bool is_prev_bullish = na(prev_close) ? is_bullish : (close >= prev_close)
+float prev_signed_factor = is_prev_bullish ? 1.0 : -1.0
+
+float amp_pct_prev = (not na(prev_close) and prev_close != 0.0) 
+     ? (amp_prev_range / prev_close) * prev_signed_factor * 100.0 
+     : 0.0
+
+// 2. 색상 정의
+color col_green = #089981
+color col_red   = #F23645
+color col_current = is_bullish ? col_green : col_red
+color col_prev    = is_prev_bullish ? col_green : col_red
+
+// 3. Status Line 및 Data Window 표시
+plot(amp, title = "Amplitude (H - L)", color = col_current, display = display.status_line + display.data_window)
+plot(amp_pct, title = "Amplitude % (Open)", color = col_current, format = format.percent, display = display.status_line + display.data_window)
+plot(amp_pct_prev, title = "Amplitude % (Prev Range)", color = col_prev, format = format.percent, display = display.status_line + display.data_window)`
+      },
+      {
+        id: "strategy-basic",
+        title: "Technical Strategy (Basic)",
+        type: "STRATEGY",
+        badgeClass: "badge-sky",
+        subtitle: "Bollinger Bands + RSI 결합 평균회귀(Mean Reversion) 진입 및 ATR 기반 손절/익절 브래킷 전략 백테스트",
+        tags: ["Bollinger Bands", "RSI(14)", "ATR SL/TP", "Mean Reversion"],
+        code: `// This Pine Script® code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © primenumbersam
+
+
+//@version=6
+// -----------------------------------------------------------------------------
+// Strategy Name : Technical Strategy (Basic)
+// Target Asset  : Equities, ETFs, Crypto (Swing / Mean Reversion)
+// Base Logic    :
+// 1. Long Entry : Price crosses over Lower Bollinger Band AND RSI crosses over Oversold level.
+// 2. Short/Exit : Price touches/crosses Upper Bollinger Band OR RSI crosses under Overbought level.
+// 3. Fixed Risk : ATR-based Stop Loss & Take Profit for robust trade management.
+// -----------------------------------------------------------------------------
+
+
+strategy(
+     title = "Technical Strategy (Basic)",
+     shorttitle = "Technical_Strategy_Basic",
+     overlay = true,
+     initial_capital = 10000,
+     default_qty_type = strategy.percent_of_equity,
+     default_qty_value = 20,
+     pyramiding = 0,
+     currency = currency.USD,
+     commission_type = strategy.commission.cash_per_contract,
+     commission_value = 0.005,
+     slippage = 1
+     )
+
+
+// User Inputs
+// Bollinger Bands Settings
+grp_bb = "Bollinger Bands"
+bbLength = input.int(20, title = "BB Length", minval = 1, group = grp_bb)
+bbMult   = input.float(2.0, title = "BB Standard Deviation", minval = 0.1, step = 0.1, group = grp_bb)
+bbSource = input.source(close, title = "BB Source", group = grp_bb)
+
+
+// RSI Settings
+grp_rsi = "Relative Strength Index (RSI)"
+rsiLength     = input.int(14, title = "RSI Length", minval = 1, group = grp_rsi)
+rsiOverSold   = input.int(30, title = "RSI Oversold Level", minval = 1, maxval = 50, group = grp_rsi)
+rsiOverBought = input.int(70, title = "RSI Overbought Level", minval = 50, maxval = 99, group = grp_rsi)
+rsiSource     = input.source(close, title = "RSI Source", group = grp_rsi)
+
+
+// Risk Management
+grp_risk = "Risk Controls"
+useSlTp    = input.bool(true, title = "Use ATR Stop Loss & Take Profit", group = grp_risk)
+atrLength  = input.int(14, title = "ATR Length", group = grp_risk)
+atrSlMult  = input.float(1.5, title = "Stop Loss (x ATR)", step = 0.1, group = grp_risk)
+atrTpMult  = input.float(2.5, title = "Take Profit (x ATR)", step = 0.1, group = grp_risk)
+
+
+// Indicator Calculations
+// Bollinger Bands Calculation
+[bbBasis, bbUpper, bbLower] = ta.bb(bbSource, bbLength, bbMult)
+
+
+// RSI Calculation
+rsiVal = ta.rsi(rsiSource, rsiLength)
+
+
+// ATR Calculation
+currentAtr = ta.atr(atrLength)
+
+
+// Entry and Exit Conditions
+// Entry: Price crosses above BB Lower Band while RSI is turning up from oversold region
+bbLongCond  = ta.crossover(close, bbLower) or (close[1] <= bbLower[1] and close > bbLower)
+rsiLongCond = ta.crossover(rsiVal, rsiOverSold) or (rsiVal <= rsiOverSold)
+longCondition = bbLongCond and rsiLongCond
+
+
+// Exit: Price reaches BB Upper Band or RSI reaches overbought region
+bbExitCond  = ta.crossunder(close, bbUpper) or (high >= bbUpper)
+rsiExitCond = ta.crossunder(rsiVal, rsiOverBought) or (rsiVal >= rsiOverBought)
+exitCondition = bbExitCond or rsiExitCond
+
+
+// Execution Logic
+var float entryAtr = na
+
+
+if longCondition and strategy.position_size == 0
+    entryAtr := currentAtr
+    strategy.entry("Long", strategy.long)
+
+
+if strategy.position_size > 0
+    // ATR-based Bracket Exit
+    if useSlTp
+        slPrice = strategy.position_avg_price - (entryAtr * atrSlMult)
+        tpPrice = strategy.position_avg_price + (entryAtr * atrTpMult)
+        strategy.exit("Bracket Exit", from_entry = "Long", stop = slPrice, limit = tpPrice)
+   
+    // Technical Indicator Exit
+    if exitCondition
+        strategy.close("Long", comment = "BB/RSI Exit")
+
+
+// Visualizations
+p_basis = plot(bbBasis, title = "BB Basis", color = color.new(color.blue, 20), linewidth = 1)
+p_upper = plot(bbUpper, title = "BB Upper", color = color.new(color.gray, 30), linewidth = 1)
+p_lower = plot(bbLower, title = "BB Lower", color = color.new(color.gray, 30), linewidth = 1)
+fill(p_upper, p_lower, color = color.new(color.blue, 92), title = "BB Background")
+
+
+// Signal Markers
+plotshape(longCondition and strategy.position_size == 0, title = "Long Entry Signal",
+          location = location.belowbar, color = color.green, style = shape.triangleup, size = size.small)
+plotshape(exitCondition and strategy.position_size > 0, title = "Exit Signal",
+          location = location.abovebar, color = color.red, style = shape.triangledown, size = size.small)`
+      },
+      {
+        id: "strategy-intermediate",
+        title: "Technical Strategy (Intermediate)",
+        type: "STRATEGY",
+        badgeClass: "badge-sky",
+        subtitle: "상위 타임프레임(HTF) 200 SMA + EMA 크로스 + MACD + 변동성 필터 결합 및 피라미딩(Scaling-in), 기간 제한 청산을 구현한 추세추종 전략 백테스트",
+        tags: ["HTF 200 SMA", "EMA 10/30 Cloud", "MACD Filter", "Pyramiding", "Dynamic Risk Sizing", "Max Bars Exit"],
+        code: `// This Pine Script® code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © primenumbersam
+
+
+//@version=6
+// -----------------------------------------------------------------------------
+// Strategy Name : Technical Strategy (Intermediate)
+// Target Asset  : Major Assets (e.g. QQQ)
+// Base Timeframe: Daily (1D) or 4-Hour (240m)
+//
+// Core Logic Overview:
+// 1. Base Entry: HTF 200 SMA Filter + Fast/Med EMA Crossover + MACD + Volatility
+// 2. Pyramiding : Adds position on pullbacks (EMA touch) or breakouts (N-bar High)
+//                 when the trade is already in profit (Safe Scaling-in).
+// 3. Exit Rules : Stop Loss / Take Profit anchored to Position Average Price,
+//                 Reverse Cross, or Time-based Maximum Holding Bars.
+// -----------------------------------------------------------------------------
+
+
+strategy(
+     title = "Technical Strategy (Intermediate)",
+     shorttitle = "Technical_Strategy_Intermediate",
+     overlay = true,
+     initial_capital = 10000,
+     default_qty_type = strategy.percent_of_equity,
+     default_qty_value = 10,
+     pyramiding = 1,
+     currency = currency.USD,
+     commission_type = strategy.commission.cash_per_contract,
+     commission_value = 0.005,
+     slippage = 1
+     )
+
+
+// User Settings
+// Risk & Money Management
+grp_risk = "Risk & Capital Management"
+riskPercent     = input.float(1.0, title = "Initial Risk % per Trade", step = 0.1, group = grp_risk) / 100
+pyramidRiskPct  = input.float(0.5, title = "Pyramiding Risk % per Add", step = 0.1, group = grp_risk) / 100
+atrLen          = input.int(14, title = "ATR Length", group = grp_risk)
+atrSlMult       = input.float(1.5, title = "ATR Multiplier (Stop Loss)", step = 0.1, group = grp_risk)
+atrTpMult       = input.float(3.0, title = "ATR Multiplier (Take Profit)", step = 0.1, group = grp_risk)
+
+
+// Pyramiding Logic Settings
+grp_pyr = "Pyramiding (Scaling-in) Settings"
+enablePyramid   = input.bool(true, title = "Enable Pyramiding", group = grp_pyr)
+maxEntries      = input.int(1, title = "Max Pyramiding Entries", minval = 1, maxval = 5, group = grp_pyr)
+pyramidMode     = input.string("EMA Pullback", title = "Pyramid Mode", options = ["EMA Pullback", "Breakout"], group = grp_pyr)
+breakoutBars    = input.int(5, title = "Breakout Lookback (Bars)", minval = 1, group = grp_pyr)
+requireProfit   = input.bool(true, title = "Require Profit Before Adding", group = grp_pyr)
+
+
+// Indicator Parameters
+grp_ind = "Indicator Parameters"
+useHtfTrend     = input.bool(true, title = "Enable HTF SMA Trend Filter", group = grp_ind)
+htfTimeframe    = input.timeframe("D", title = "HTF Resolution", group = grp_ind)
+htfSmaLen       = input.int(200, title = "HTF SMA Length", group = grp_ind)
+fastMaLen       = input.int(10, title = "Fast EMA Length", group = grp_ind)
+medMaLen        = input.int(30, title = "Medium EMA Length", group = grp_ind)
+macdFastLen     = input.int(12, title = "MACD Fast Length", group = grp_ind)
+macdSlowLen     = input.int(26, title = "MACD Slow Length", group = grp_ind)
+macdSigSmooth   = input.int(9, title = "MACD Signal Smooth", group = grp_ind)
+
+
+// Exit Rules
+grp_exit = "Exit Rules"
+enableCrossExit = input.bool(true, title = "Exit on DeadCross", group = grp_exit)
+enableTimeExit  = input.bool(true, title = "Enable Max Bars Exit", group = grp_exit)
+maxBarsInTrade  = input.int(20, title = "Max Bars from Initial Entry", minval = 1, group = grp_exit)
+
+
+// Indicator Calculations
+fastEMA = ta.ema(close, fastMaLen)
+medEMA  = ta.ema(close, medMaLen)
+
+
+// HTF Trend Calculation
+htfSma = request.security(syminfo.tickerid, htfTimeframe, ta.sma(close, htfSmaLen), barmerge.gaps_off, barmerge.lookahead_off)
+trendOk = not useHtfTrend or (close > htfSma)
+
+
+// MACD & ATR
+[macdLine, signalLine, histLine] = ta.macd(close, macdFastLen, macdSlowLen, macdSigSmooth)
+macdOk = histLine > 0
+currentAtr = ta.atr(atrLen)
+volatilityOk = currentAtr >= ta.sma(currentAtr, 20)
+
+
+// Tracking State Variables
+var float activeAtr = na
+var int initialEntryBar = 0
+
+
+// Position State
+inPosition = strategy.position_size > 0
+currentTrades = strategy.opentrades
+
+
+// Position Sizing Calculations
+calcQuantity(float rPct) =>
+    riskPerUnit = currentAtr * atrSlMult
+    riskCapital = strategy.equity * rPct
+    riskPerUnit > 0 ? (riskCapital / riskPerUnit) : 0.0
+
+
+// Signal Conditions
+// Initial Entry Condition
+initialSignal = ta.crossover(fastEMA, medEMA) and trendOk and macdOk and volatilityOk
+
+
+// Pyramiding Additional Entry Condition
+profitCondition = not requireProfit or (close > strategy.position_avg_price)
+pullbackCondition = (low <= fastEMA) and (close > fastEMA)
+breakoutCondition = close > ta.highest(high, breakoutBars)[1]
+
+
+pyramidSignal = inPosition and enablePyramid and (currentTrades < maxEntries) and profitCondition and
+                 (pyramidMode == "EMA Pullback" ? pullbackCondition : breakoutCondition)
+
+
+// Trade Executions
+// Initial Entry
+if initialSignal and not inPosition
+    activeAtr := currentAtr
+    initialEntryBar := bar_index
+    strategy.entry("Initial Long", strategy.long, qty = calcQuantity(riskPercent))
+
+
+// Pyramiding Additional Entry
+if pyramidSignal
+    activeAtr := currentAtr
+    string entryId = "Add Long " + str.tostring(currentTrades + 1)
+    strategy.entry(entryId, strategy.long, qty = calcQuantity(pyramidRiskPct))
+
+
+// Position Exits
+if inPosition
+    // Dynamic Exit Levels based on Position Average Price
+    longSlPrice = strategy.position_avg_price - (activeAtr * atrSlMult)
+    longTpPrice = strategy.position_avg_price + (activeAtr * atrTpMult)
+   
+    // Bracket Exit
+    strategy.exit("Bracket Exit", stop = longSlPrice, limit = longTpPrice)
+   
+    // Signal-based Exits
+    barsSinceEntry = bar_index - initialEntryBar
+    if enableCrossExit and ta.crossunder(fastEMA, medEMA)
+        strategy.close_all(comment = "DeadCross Exit")
+       
+    if enableTimeExit and (barsSinceEntry >= maxBarsInTrade)
+        strategy.close_all(comment = "Max Bars Exit")
+
+
+// Visualizations
+plot(fastEMA, title = "Fast EMA", color = color.new(#2962FF, 0), linewidth = 2)
+plot(medEMA, title = "Med EMA", color = color.new(#FF6D00, 0), linewidth = 2)
+plot(useHtfTrend ? htfSma : na, title = "HTF SMA", color = color.new(color.white, 30), linewidth = 2)
+
+
+// Fill Cloud
+fill(plot(fastEMA, display = display.none), plot(medEMA, display = display.none),
+     color = fastEMA >= medEMA ? color.new(color.teal, 85) : color.new(color.maroon, 85),
+     title = "Trend Cloud")
+
+
+// Signal Markers
+plotshape(initialSignal and not inPosition, title = "Initial Buy", location = location.belowbar,
+          color = color.lime, style = shape.triangleup, size = size.normal)
+plotshape(pyramidSignal, title = "Pyramid Add", location = location.belowbar,
+          color = color.yellow, style = shape.triangleup, size = size.small)`
+      }
+    ];
+
+    const root = document.getElementById('bento-root');
+    const toast = document.getElementById('toast');
+    const modal = document.getElementById('code-modal');
+    const modalTitle = document.getElementById('modal-title');
+    const modalSubtitle = document.getElementById('modal-subtitle');
+    const modalCode = document.getElementById('modal-code');
+    const modalCopyBtn = document.getElementById('modal-copy-btn');
+    const modalCloseBtn = document.getElementById('modal-close-btn');
+
+    let toastTimer = null;
+    let activeModalScript = null;
+
+    function showToast(msg) {
+      toast.textContent = msg;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove('show'), 1800);
+    }
+
+    async function copyToClipboard(text, btnEl) {
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      if (btnEl) {
+        const prev = btnEl.textContent;
+        btnEl.textContent = '복사 완료!';
+        btnEl.classList.add('btn-copied');
+        setTimeout(() => {
+          btnEl.textContent = prev;
+          btnEl.classList.remove('btn-copied');
+        }, 1500);
+      }
+      showToast('Pine Script 코드가 클립보드에 복사되었습니다.');
+    }
+
+    function openModal(script) {
+      activeModalScript = script;
+      modalTitle.textContent = script.title;
+      modalSubtitle.textContent = script.subtitle;
+      modalCode.textContent = script.code;
+      modal.classList.add('open');
+    }
+
+    function closeModal() {
+      modal.classList.remove('open');
+      activeModalScript = null;
+    }
+
+    SCRIPTS.forEach((script) => {
+      const card = document.createElement('article');
+      card.className = 'card card-script';
+
+      card.innerHTML = `
+        <div>
+          <div class="badge-row" style="margin-bottom: 8px;">
+            <span class="badge ${script.badgeClass}">${script.type}</span>
+          </div>
+          <h2 style="margin-bottom: 10px;">${script.title}</h2>
+
+          <div class="tag-list">
+            ${script.tags.map(t => `<span class="tag">${t}</span>`).join('')}
+          </div>
+
+          <p class="script-desc">${script.subtitle}</p>
+        </div>
+
+        <div class="btn-group" style="justify-content: flex-end; margin-top: 8px;">
+          <button type="button" class="btn btn-secondary expand-btn">크게 보기</button>
+          <button type="button" class="btn copy-btn">복사</button>
+        </div>
+      `;
+
+      card.querySelector('.copy-btn').addEventListener('click', (e) => {
+        copyToClipboard(script.code, e.currentTarget);
+      });
+
+      card.querySelector('.expand-btn').addEventListener('click', () => {
+        openModal(script);
+      });
+
+      root.appendChild(card);
+    });
+
+    modalCopyBtn.addEventListener('click', (e) => {
+      if (activeModalScript) {
+        copyToClipboard(activeModalScript.code, e.currentTarget);
+      }
+    });
+    modalCloseBtn.addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeModal();
+    });
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && modal.classList.contains('open')) {
+        closeModal();
+      }
+    });
+  </script>
+</body>
+
+</html>

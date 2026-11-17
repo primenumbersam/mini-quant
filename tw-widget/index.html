@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="ko" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>쌀먹 트뷰 멀티 차트</title>
+
+  <!-- Prevent benign ResizeObserver loop notices from stopping runtime -->
+  <script>
+    window.addEventListener('error', function(e) {
+      if (e.message && (e.message.includes('ResizeObserver') || e.message.includes('undelivered notifications'))) {
+        e.stopImmediatePropagation();
+      }
+    }, true);
+  </script>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- TradingView Ticker Tape Web Component Script -->
+  <script type="module" src="https://widgets.tradingview-widget.com/w/en/tv-ticker-tape.js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              black: '#000000',
+              darkCard: '#0d0d0d',
+              darkBorder: '#262626',
+              darkHover: '#171717',
+              lightBg: '#f4f4f5',
+              lightCard: '#ffffff',
+              lightBorder: '#e4e4e7',
+              lightHover: '#f8fafc'
+            }
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      min-height: 100%;
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .font-mono-code {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Achromatic custom scrollbars */
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    html.dark ::-webkit-scrollbar-track { background: #000000; }
+    html.dark ::-webkit-scrollbar-thumb { background: #262626; border-radius: 9999px; }
+    html.dark ::-webkit-scrollbar-thumb:hover { background: #404040; }
+
+    html:not(.dark) ::-webkit-scrollbar-track { background: #f4f4f5; }
+    html:not(.dark) ::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 9999px; }
+    html:not(.dark) ::-webkit-scrollbar-thumb:hover { background: #a1a1aa; }
+
+    /* Performance & Resize isolation for chart cards */
+    .chart-card {
+      contain: layout style;
+    }
+
+    /* Mobile Touch Scroll Shield: prevents TradingView iframe from trapping vertical finger scroll */
+    .touch-scroll-shield {
+      position: absolute;
+      inset: 0;
+      z-index: 20;
+      background: transparent;
+      touch-action: pan-y;
+    }
+    .touch-scroll-shield.unlocked {
+      pointer-events: none;
+    }
+    @media (hover: hover) and (pointer: fine) {
+      .touch-scroll-shield,
+      .mobile-lock-btn {
+        display: none !important;
+      }
+    }
+  </style>
+</head>
+
+<body class="min-h-screen lg:h-screen flex flex-col transition-colors duration-150 bg-neutral-100 text-neutral-900 dark:bg-black dark:text-neutral-200 antialiased selection:bg-neutral-800 selection:text-white">
+
+  <!-- Header Bar -->
+  <header class="bg-white dark:bg-[#0a0a0a] border-b border-neutral-200 dark:border-[#262626] px-3 sm:px-4 py-2 shadow-sm relative z-40 shrink-0">
+    <div class="max-w-[1920px] mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
+      
+      <!-- Brand Title & Integrated Dark/Light Mode Pill Switch -->
+      <div class="flex items-center justify-between sm:justify-start gap-2.5 min-w-0 w-full sm:w-auto">
+        <div class="flex items-center gap-2 min-w-0">
+          <div class="h-7 w-7 sm:h-8 sm:w-8 rounded-lg bg-neutral-900 text-white dark:bg-white dark:text-black flex items-center justify-center shrink-0 shadow-sm">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+            </svg>
+          </div>
+          
+          <h1 class="text-sm sm:text-base font-bold tracking-tight text-neutral-900 dark:text-white truncate">
+            쌀먹 트뷰 멀티 차트
+          </h1>
+        </div>
+
+        <!-- Theme Toggle Switch Pill (Replaces PRO badge completely) -->
+        <button
+          id="theme-toggle-btn"
+          type="button"
+          class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono-code font-semibold border transition cursor-pointer select-none shrink-0 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 border-neutral-300 dark:bg-neutral-900 dark:hover:bg-neutral-800 dark:text-neutral-200 dark:border-neutral-700"
+          title="테마 전환 (Dark / Light)">
+          <svg id="theme-icon-moon" class="w-3 h-3 text-neutral-300 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+          </svg>
+          <svg id="theme-icon-sun" class="w-3 h-3 text-neutral-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+          </svg>
+          <span id="theme-toggle-label" class="text-[11px] tracking-wider uppercase font-bold">DARK</span>
+        </button>
+      </div>
+
+      <!-- Action Controls -->
+      <div class="flex items-center justify-between sm:justify-end gap-1.5 sm:gap-2 text-xs sm:text-sm shrink-0 w-full sm:w-auto">
+        
+        <!-- INTERVAL DROPDOWN -->
+        <div class="relative" id="interval-dropdown-container">
+          <button id="interval-btn" type="button" class="inline-flex items-center gap-1.5 sm:gap-2 bg-neutral-100 hover:bg-neutral-200 border border-neutral-300 text-neutral-800 dark:bg-neutral-900 dark:hover:bg-neutral-800 dark:border-neutral-700 dark:text-neutral-200 rounded-lg px-2.5 sm:px-3 py-1.5 transition font-medium focus:outline-none">
+            <span class="text-neutral-500 dark:text-neutral-400">주기:</span>
+            <span id="current-interval-label" class="font-mono-code font-bold text-neutral-900 dark:text-white">15</span>
+            <svg class="w-3.5 h-3.5 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          <!-- Interval Dropdown Modal -->
+          <div id="interval-dropdown-menu" class="hidden absolute left-0 sm:left-auto sm:right-0 mt-2 w-60 bg-white dark:bg-[#111111] border border-neutral-200 dark:border-neutral-800 rounded-xl shadow-2xl p-3 z-50">
+            <div class="flex items-center justify-between border-b border-neutral-200 dark:border-neutral-800 pb-2 mb-2">
+              <span class="text-xs font-semibold tracking-wider text-neutral-800 dark:text-neutral-200">주기(Interval) 선택</span>
+              <span class="text-[11px] text-neutral-500">단일 선택</span>
+            </div>
+            
+            <div id="interval-list" class="max-h-48 overflow-y-auto space-y-1 pr-1 mb-2"></div>
+
+            <form id="add-interval-form" class="flex gap-1.5 pt-2 border-t border-neutral-200 dark:border-neutral-800">
+              <input id="new-interval-input" type="text" placeholder="예: 5, 120, W" class="w-full bg-neutral-50 dark:bg-black border border-neutral-300 dark:border-neutral-700 text-xs rounded-lg px-2 py-1.5 focus:outline-none text-neutral-900 dark:text-white font-mono-code uppercase">
+              <button type="submit" class="bg-neutral-900 text-white dark:bg-neutral-100 dark:text-black px-2.5 py-1.5 rounded-lg text-xs font-bold shrink-0 transition hover:opacity-90">추가</button>
+            </form>
+          </div>
+        </div>
+
+        <!-- SYMBOL DROPDOWN -->
+        <div class="relative" id="symbol-dropdown-container">
+          <button id="symbol-btn" type="button" class="inline-flex items-center gap-1.5 sm:gap-2 bg-neutral-100 hover:bg-neutral-200 border border-neutral-300 text-neutral-800 dark:bg-neutral-900 dark:hover:bg-neutral-800 dark:border-neutral-700 dark:text-neutral-200 rounded-lg px-2.5 sm:px-3 py-1.5 transition font-medium focus:outline-none">
+            <span class="text-neutral-500 dark:text-neutral-400">심볼 선택:</span>
+            <span id="symbol-count-badge" class="px-1.5 py-0.2 rounded bg-white dark:bg-black border border-neutral-300 dark:border-neutral-700 font-mono-code font-bold text-xs">0 / 9</span>
+            <svg class="w-3.5 h-3.5 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          <!-- Symbol Dropdown Modal -->
+          <div id="symbol-dropdown-menu" class="hidden absolute right-0 mt-2 w-[calc(100vw-1.5rem)] max-w-80 sm:w-80 bg-white dark:bg-[#111111] border border-neutral-200 dark:border-neutral-800 rounded-xl shadow-2xl p-3 z-50">
+            <div class="flex items-center justify-between border-b border-neutral-200 dark:border-neutral-800 pb-2 mb-2">
+              <div>
+                <span class="text-xs font-semibold tracking-wider text-neutral-800 dark:text-neutral-200">심볼(Symbol) 목록</span>
+                <p class="text-[11px] text-neutral-500">최대 9개 다중 선택</p>
+              </div>
+              <span id="symbol-limit-warning" class="text-[11px] text-red-500 hidden font-semibold">최대 9개</span>
+            </div>
+
+            <div id="symbol-list" class="max-h-60 overflow-y-auto space-y-1 pr-1 mb-2"></div>
+
+            <form id="add-symbol-form" class="flex gap-1.5 pt-2 border-t border-neutral-200 dark:border-neutral-800">
+              <input id="new-symbol-input" type="text" placeholder="예: BINANCE:ETHUSDT" class="w-full bg-neutral-50 dark:bg-black border border-neutral-300 dark:border-neutral-700 text-xs rounded-lg px-2 py-1.5 focus:outline-none text-neutral-900 dark:text-white font-mono-code uppercase">
+              <button type="submit" class="bg-neutral-900 text-white dark:bg-neutral-100 dark:text-black px-2.5 py-1.5 rounded-lg text-xs font-bold shrink-0 transition hover:opacity-90">추가</button>
+            </form>
+          </div>
+        </div>
+
+        <!-- Refresh Button -->
+        <button id="refresh-charts-btn" title="차트 새로고침" class="p-1.5 bg-neutral-100 hover:bg-neutral-200 border border-neutral-300 text-neutral-800 dark:bg-neutral-900 dark:hover:bg-neutral-800 dark:border-neutral-700 dark:text-neutral-200 rounded-lg transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+        </button>
+
+      </div>
+    </div>
+  </header>
+
+  <!-- Ticker Tape Section -->
+  <section id="ticker-tape-wrapper" class="w-full bg-white dark:bg-black border-b border-neutral-200 dark:border-neutral-800 overflow-hidden min-h-[46px] shrink-0">
+    <!-- Populated by JavaScript to guarantee correct theme & symbols -->
+  </section>
+
+  <!-- Main Multi-Chart Grid Workspace -->
+  <main class="flex-1 w-full p-2 bg-neutral-100 dark:bg-black flex flex-col lg:overflow-hidden">
+    <div id="charts-grid" class="w-full flex-1 lg:min-h-0 grid gap-2">
+      <!-- Dynamically generated chart cards -->
+    </div>
+
+    <!-- Empty State -->
+    <div id="empty-state" class="hidden flex-1 flex flex-col items-center justify-center p-8 text-center">
+      <div class="p-6 rounded-2xl bg-white dark:bg-[#0d0d0d] border border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 max-w-sm">
+        <svg class="w-10 h-10 mx-auto mb-2 text-neutral-400 dark:text-neutral-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+        <p class="text-sm font-semibold text-neutral-900 dark:text-white mb-1">선택된 심볼이 없습니다</p>
+        <p class="text-xs text-neutral-500">우측 상단 '심볼 선택' 메뉴에서 표시할 차트를 선택하세요.</p>
+      </div>
+    </div>
+  </main>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed bottom-10 right-5 z-50 bg-neutral-900 text-white dark:bg-neutral-100 dark:text-black px-3.5 py-1.5 rounded-lg shadow-xl transition-all duration-200 transform translate-y-10 opacity-0 pointer-events-none flex items-center gap-2 text-xs font-medium">
+    <span id="toast-message">알림</span>
+  </div>
+
+  <!-- Footer -->
+  <footer class="bg-white dark:bg-black border-t border-neutral-200 dark:border-neutral-900 px-4 py-1.5 text-center text-[11px] text-neutral-500 dark:text-neutral-500 shrink-0">
+    <div class="max-w-[1920px] mx-auto flex items-center justify-between">
+      <span class="flex items-center gap-1.5">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+        TradingView Multi-Chart
+      </span>
+      <span class="font-medium text-neutral-700 dark:text-neutral-400">
+        작성자 : <span class="text-neutral-900 dark:text-neutral-200 font-semibold">삼순동순기술</span>
+      </span>
+    </div>
+  </footer>
+
+  <script>
+    /* Default Presets */
+    const PRESET_INTERVALS = ["15", "60", "240", "D"];
+    const PRESET_SYMBOLS = [
+      "FOREXCOM:SPXUSD",
+      "FOREXCOM:NSXUSD",
+      "BITSTAMP:BTCUSD",
+      "CMCMARKETS:GOLD",
+      "usdkrw",
+      "dell",
+      "NASDAQ:PLTR",
+      "koru",
+      "NYSE:CPNG"
+    ];
+
+    /* Storage Migration Key */
+    const MIGRATION_KEY = 'tv_multi_chart_v5';
+    if (!localStorage.getItem(MIGRATION_KEY)) {
+      localStorage.setItem('tv_symbols', JSON.stringify(PRESET_SYMBOLS));
+      localStorage.setItem('tv_selected_symbols', JSON.stringify(PRESET_SYMBOLS));
+      localStorage.setItem('tv_intervals', JSON.stringify(PRESET_INTERVALS));
+      localStorage.setItem('tv_selected_interval', "15");
+      localStorage.setItem('tv_theme', 'dark');
+      localStorage.setItem(MIGRATION_KEY, 'true');
+    }
+
+    /* State Initialization */
+    let currentTheme = localStorage.getItem('tv_theme') || 'dark';
+    let intervals = JSON.parse(localStorage.getItem('tv_intervals')) || PRESET_INTERVALS;
+    let selectedInterval = localStorage.getItem('tv_selected_interval') || "15";
+    let symbols = JSON.parse(localStorage.getItem('tv_symbols')) || PRESET_SYMBOLS;
+    let selectedSymbols = JSON.parse(localStorage.getItem('tv_selected_symbols')) || PRESET_SYMBOLS;
+
+    /* DOM Selectors */
+    const htmlEl = document.documentElement;
+    const themeToggleBtn = document.getElementById('theme-toggle-btn');
+    const themeIconSun = document.getElementById('theme-icon-sun');
+    const themeIconMoon = document.getElementById('theme-icon-moon');
+    const themeToggleLabel = document.getElementById('theme-toggle-label');
+
+    const intervalBtn = document.getElementById('interval-btn');
+    const intervalDropdownMenu = document.getElementById('interval-dropdown-menu');
+    const intervalList = document.getElementById('interval-list');
+    const addIntervalForm = document.getElementById('add-interval-form');
+    const newIntervalInput = document.getElementById('new-interval-input');
+    const currentIntervalLabel = document.getElementById('current-interval-label');
+
+    const symbolBtn = document.getElementById('symbol-btn');
+    const symbolDropdownMenu = document.getElementById('symbol-dropdown-menu');
+    const symbolList = document.getElementById('symbol-list');
+    const addSymbolForm = document.getElementById('add-symbol-form');
+    const newSymbolInput = document.getElementById('new-symbol-input');
+    const symbolCountBadge = document.getElementById('symbol-count-badge');
+    const symbolLimitWarning = document.getElementById('symbol-limit-warning');
+
+    const chartsGrid = document.getElementById('charts-grid');
+    const emptyState = document.getElementById('empty-state');
+    const tickerTapeWrapper = document.getElementById('ticker-tape-wrapper');
+    const refreshBtn = document.getElementById('refresh-charts-btn');
+
+    /* Toast Helper */
+    let toastTimer = null;
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toast-message');
+      toastMsg.textContent = msg;
+      toast.classList.remove('translate-y-10', 'opacity-0', 'pointer-events-none');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.classList.add('translate-y-10', 'opacity-0', 'pointer-events-none');
+      }, 1800);
+    }
+
+    /* State Persistence */
+    function persistState() {
+      localStorage.setItem('tv_theme', currentTheme);
+      localStorage.setItem('tv_intervals', JSON.stringify(intervals));
+      localStorage.setItem('tv_selected_interval', selectedInterval);
+      localStorage.setItem('tv_symbols', JSON.stringify(symbols));
+      localStorage.setItem('tv_selected_symbols', JSON.stringify(selectedSymbols));
+    }
+
+    function applyTheme() {
+      const isDark = (currentTheme === 'dark');
+      if (isDark) {
+        htmlEl.classList.add('dark');
+        themeIconSun.classList.add('hidden');
+        themeIconMoon.classList.remove('hidden');
+        themeToggleLabel.textContent = 'DARK';
+      } else {
+        htmlEl.classList.remove('dark');
+        themeIconSun.classList.remove('hidden');
+        themeIconMoon.classList.add('hidden');
+        themeToggleLabel.textContent = 'LIGHT';
+      }
+    }
+
+    function toggleTheme() {
+      currentTheme = (currentTheme === 'dark') ? 'light' : 'dark';
+      persistState();
+      applyTheme();
+      renderTickerTape();
+      renderCharts();
+      showToast(`${currentTheme.toUpperCase()} 모드로 전환됨`);
+    }
+
+    themeToggleBtn.addEventListener('click', toggleTheme);
+
+    /* Render Ticker Tape Widget */
+    function renderTickerTape() {
+      const isDark = (currentTheme === 'dark');
+      const symString = (selectedSymbols.length > 0 ? selectedSymbols : symbols).join(',');
+      const bgColor = isDark ? '#000000' : '#ffffff';
+
+      tickerTapeWrapper.innerHTML = `
+        <tv-ticker-tape
+          symbols="${symString}"
+          theme="${currentTheme}"
+          item-size="compact"
+          style="background-color: ${bgColor} !important; color-scheme: ${currentTheme} !important; width: 100%; display: block;">
+        </tv-ticker-tape>
+      `;
+    }
+
+    /* Interval UI */
+    function renderIntervals() {
+      currentIntervalLabel.textContent = selectedInterval;
+      intervalList.innerHTML = '';
+
+      intervals.forEach((item) => {
+        const isSelected = (item === selectedInterval);
+        const div = document.createElement('div');
+        div.className = `flex items-center justify-between px-2 py-1.5 rounded-lg text-xs cursor-pointer transition ${
+          isSelected 
+            ? 'bg-neutral-200 dark:bg-neutral-800 font-bold text-neutral-900 dark:text-white' 
+            : 'hover:bg-neutral-100 dark:hover:bg-neutral-900 text-neutral-600 dark:text-neutral-400'
+        }`;
+
+        div.innerHTML = `
+          <div class="flex items-center gap-2 flex-1 select-none">
+            <span class="w-3 h-3 rounded-full border flex items-center justify-center ${isSelected ? 'border-neutral-900 dark:border-white bg-neutral-900 dark:bg-white' : 'border-neutral-400 dark:border-neutral-600'}">
+              ${isSelected ? '<span class="w-1.5 h-1.5 rounded-full bg-white dark:bg-black"></span>' : ''}
+            </span>
+            <span class="font-mono-code">${item}</span>
+          </div>
+          <button type="button" class="del-btn text-neutral-400 hover:text-red-500 p-0.5 rounded transition">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+          </button>
+        `;
+
+        div.querySelector('.flex-1').addEventListener('click', () => {
+          selectedInterval = item;
+          persistState();
+          renderIntervals();
+          renderCharts();
+          showToast(`주기 변경: [${item}]`);
+        });
+
+        div.querySelector('.del-btn').addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (intervals.length <= 1) {
+            showToast("최소 1개의 주기는 유지해야 합니다.");
+            return;
+          }
+          intervals = intervals.filter(i => i !== item);
+          if (selectedInterval === item) selectedInterval = intervals[0];
+          persistState();
+          renderIntervals();
+          renderCharts();
+        });
+
+        intervalList.appendChild(div);
+      });
+    }
+
+    addIntervalForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const val = newIntervalInput.value.trim().toUpperCase();
+      if (!val) return;
+      if (intervals.includes(val)) {
+        showToast("이미 등록된 주기입니다.");
+        return;
+      }
+      intervals.push(val);
+      selectedInterval = val;
+      newIntervalInput.value = '';
+      persistState();
+      renderIntervals();
+      renderCharts();
+      showToast(`주기 [${val}] 추가됨`);
+    });
+
+    /* Symbol UI */
+    function renderSymbols() {
+      symbolCountBadge.textContent = `${selectedSymbols.length} / 9`;
+      symbolLimitWarning.classList.toggle('hidden', selectedSymbols.length < 9);
+      symbolList.innerHTML = '';
+
+      symbols.forEach((sym) => {
+        const isChecked = selectedSymbols.includes(sym);
+        const div = document.createElement('div');
+        div.className = `flex items-center justify-between px-2 py-1.5 rounded-lg text-xs transition ${
+          isChecked 
+            ? 'bg-neutral-200 dark:bg-neutral-800 font-medium text-neutral-900 dark:text-white' 
+            : 'hover:bg-neutral-100 dark:hover:bg-neutral-900 text-neutral-600 dark:text-neutral-400'
+        }`;
+
+        div.innerHTML = `
+          <label class="flex items-center gap-2 flex-1 cursor-pointer overflow-hidden select-none">
+            <input type="checkbox" ${isChecked ? 'checked' : ''} class="sym-check rounded text-black focus:ring-0">
+            <span class="font-mono-code text-[11px] truncate" title="${sym}">${sym}</span>
+          </label>
+          <button type="button" class="del-sym text-neutral-400 hover:text-red-500 p-0.5 rounded ml-2">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+          </button>
+        `;
+
+        const check = div.querySelector('.sym-check');
+        check.addEventListener('change', () => {
+          if (check.checked) {
+            if (selectedSymbols.length >= 9) {
+              check.checked = false;
+              showToast("최대 9개까지만 선택 가능합니다.");
+              return;
+            }
+            selectedSymbols.push(sym);
+          } else {
+            selectedSymbols = selectedSymbols.filter(s => s !== sym);
+          }
+          persistState();
+          renderSymbols();
+          renderCharts();
+          renderTickerTape();
+        });
+
+        div.querySelector('.del-sym').addEventListener('click', (e) => {
+          e.stopPropagation();
+          symbols = symbols.filter(s => s !== sym);
+          selectedSymbols = selectedSymbols.filter(s => s !== sym);
+          persistState();
+          renderSymbols();
+          renderCharts();
+          renderTickerTape();
+        });
+
+        symbolList.appendChild(div);
+      });
+    }
+
+    addSymbolForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const val = newSymbolInput.value.trim();
+      if (!val) return;
+      if (symbols.includes(val)) {
+        showToast("이미 등록된 심볼입니다.");
+        return;
+      }
+      symbols.push(val);
+      if (selectedSymbols.length < 9) {
+        selectedSymbols.push(val);
+      }
+      newSymbolInput.value = '';
+      persistState();
+      renderSymbols();
+      renderCharts();
+      renderTickerTape();
+      showToast(`심볼 [${val}] 등록됨`);
+    });
+
+    /* Apply dynamic desktop responsive grid */
+    function applyGrid(count) {
+      chartsGrid.className = "w-full flex-1 lg:min-h-0 grid gap-2";
+      if (count === 1) {
+        chartsGrid.classList.add('grid-cols-1', 'lg:grid-rows-1');
+      } else if (count === 2) {
+        chartsGrid.classList.add('grid-cols-1', 'md:grid-cols-2', 'lg:grid-rows-1');
+      } else if (count === 3) {
+        chartsGrid.classList.add('grid-cols-1', 'md:grid-cols-3', 'lg:grid-rows-1');
+      } else if (count === 4) {
+        chartsGrid.classList.add('grid-cols-1', 'sm:grid-cols-2', 'lg:grid-rows-2');
+      } else if (count === 5 || count === 6) {
+        chartsGrid.classList.add('grid-cols-1', 'sm:grid-cols-2', 'lg:grid-cols-3', 'lg:grid-rows-2');
+      } else {
+        chartsGrid.classList.add('grid-cols-1', 'sm:grid-cols-2', 'lg:grid-cols-3', 'lg:grid-rows-3');
+      }
+    }
+
+    /* Render All TradingView Charts */
+    function renderCharts() {
+      const count = selectedSymbols.length;
+
+      if (count === 0) {
+        chartsGrid.classList.add('hidden');
+        emptyState.classList.remove('hidden');
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+      chartsGrid.classList.remove('hidden');
+      applyGrid(count);
+      chartsGrid.innerHTML = '';
+
+      const isDark = (currentTheme === 'dark');
+      const widgetBg = isDark ? "#000000" : "#ffffff";
+      const widgetGrid = isDark ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.05)";
+      const mobileHeightClass = count === 1
+        ? "h-[65vh] min-h-[340px] lg:h-full lg:min-h-[220px]"
+        : "h-[340px] sm:h-[380px] lg:h-full lg:min-h-[220px]";
+
+      selectedSymbols.forEach((sym) => {
+        const card = document.createElement('div');
+        card.className = `chart-card bg-white dark:bg-[#0c0c0c] border border-neutral-300 dark:border-[#262626] rounded-xl overflow-hidden shadow-sm flex flex-col w-full ${mobileHeightClass}`;
+
+        /* Card Header */
+        const header = document.createElement('div');
+        header.className = "px-2.5 py-1.5 sm:py-1 bg-neutral-50 dark:bg-[#121212] border-b border-neutral-200 dark:border-[#222222] flex items-center justify-between gap-2 text-xs shrink-0 select-none";
+        header.innerHTML = `
+          <div class="flex items-center gap-1.5 min-w-0 truncate">
+            <span class="w-1.5 h-1.5 rounded-full shrink-0 ${isDark ? 'bg-neutral-400' : 'bg-neutral-600'}"></span>
+            <span class="font-mono-code font-bold tracking-tight text-neutral-900 dark:text-white truncate">${sym}</span>
+            <span class="text-[10px] px-1.5 py-0.2 rounded bg-neutral-200 text-neutral-800 dark:bg-black dark:text-neutral-400 font-mono-code border border-neutral-300 dark:border-neutral-800 shrink-0">${selectedInterval}</span>
+          </div>
+          <div class="flex items-center gap-1 shrink-0">
+            <button type="button" class="mobile-lock-btn inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-600 dark:text-neutral-300 transition" title="터치 조작 전환">
+              <span class="lock-label">스크롤 모드</span>
+            </button>
+            <button type="button" class="close-card-btn inline-flex items-center gap-0.5 text-neutral-400 hover:text-red-500 dark:hover:text-white px-1 py-0.5 rounded transition" title="차트 제외">
+              <span class="text-[11px] hidden sm:inline">닫기</span>
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+          </div>
+        `;
+
+        header.querySelector('.close-card-btn').addEventListener('click', () => {
+          selectedSymbols = selectedSymbols.filter(s => s !== sym);
+          persistState();
+          renderSymbols();
+          renderCharts();
+          renderTickerTape();
+        });
+
+        /* TradingView Embed Container */
+        const widgetWrapper = document.createElement('div');
+        widgetWrapper.className = "tradingview-widget-container flex-1 w-full h-full relative";
+        widgetWrapper.style.backgroundColor = widgetBg;
+
+        const widgetPlaceholder = document.createElement('div');
+        widgetPlaceholder.className = "tradingview-widget-container__widget w-full h-full";
+        widgetWrapper.appendChild(widgetPlaceholder);
+
+        /* Mobile Touch Scroll Shield */
+        const scrollShield = document.createElement('div');
+        scrollShield.className = "touch-scroll-shield";
+        const lockBtn = header.querySelector('.mobile-lock-btn');
+        const lockLabel = lockBtn.querySelector('.lock-label');
+
+        const setChartInteractive = (interactive) => {
+          if (interactive) {
+            scrollShield.classList.add('unlocked');
+            lockLabel.textContent = '차트 조작중';
+            lockBtn.classList.add('border-emerald-500', 'text-emerald-600', 'dark:text-emerald-400', 'dark:border-emerald-500/60');
+          } else {
+            scrollShield.classList.remove('unlocked');
+            lockLabel.textContent = '스크롤 모드';
+            lockBtn.classList.remove('border-emerald-500', 'text-emerald-600', 'dark:text-emerald-400', 'dark:border-emerald-500/60');
+          }
+        };
+
+        scrollShield.addEventListener('click', () => setChartInteractive(true));
+        lockBtn.addEventListener('click', () => {
+          const isCurrentlyUnlocked = scrollShield.classList.contains('unlocked');
+          setChartInteractive(!isCurrentlyUnlocked);
+        });
+
+        widgetWrapper.appendChild(scrollShield);
+
+        const tvScript = document.createElement('script');
+        tvScript.type = 'text/javascript';
+        tvScript.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
+        tvScript.async = true;
+
+        const widgetConfig = {
+          "autosize": true,
+          "symbol": sym,
+          "interval": selectedInterval,
+          "timezone": "Asia/Seoul",
+          "theme": currentTheme,
+          "style": "1",
+          "locale": "en",
+          "enable_publishing": false,
+          "allow_symbol_change": true,
+          "calendar": false,
+          "hide_side_toolbar": true,
+          "hide_top_toolbar": false,
+          "hide_legend": false,
+          "hide_volume": false,
+          "backgroundColor": widgetBg,
+          "gridColor": widgetGrid,
+          "support_host": "https://www.tradingview.com"
+        };
+
+        tvScript.text = JSON.stringify(widgetConfig);
+        widgetWrapper.appendChild(tvScript);
+
+        card.appendChild(header);
+        card.appendChild(widgetWrapper);
+        chartsGrid.appendChild(card);
+      });
+    }
+
+    /* Dropdown Toggle Handlers */
+    intervalBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      symbolDropdownMenu.classList.add('hidden');
+      intervalDropdownMenu.classList.toggle('hidden');
+    });
+
+    symbolBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      intervalDropdownMenu.classList.add('hidden');
+      symbolDropdownMenu.classList.toggle('hidden');
+    });
+
+    window.addEventListener('click', (e) => {
+      if (!intervalDropdownMenu.contains(e.target) && !intervalBtn.contains(e.target)) {
+        intervalDropdownMenu.classList.add('hidden');
+      }
+      if (!symbolDropdownMenu.contains(e.target) && !symbolBtn.contains(e.target)) {
+        symbolDropdownMenu.classList.add('hidden');
+      }
+    });
+
+    refreshBtn.addEventListener('click', () => {
+      renderCharts();
+      renderTickerTape();
+      showToast("차트 새로고침 완료");
+    });
+
+    /* Initial Boot */
+    window.addEventListener('DOMContentLoaded', () => {
+      applyTheme();
+      renderIntervals();
+      renderSymbols();
+      renderCharts();
+      renderTickerTape();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="ko" class="dark">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mini Quant | Client-Side Artifacts Hub</title>
+  <script>
+    (function () {
+      const savedTheme = localStorage.getItem('theme');
+      if (savedTheme === 'light') {
+        document.documentElement.classList.remove('dark');
+      } else {
+        document.documentElement.classList.add('dark');
+      }
+    })();
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              bg: 'rgb(var(--brand-bg) / <alpha-value>)',
+              card: 'rgb(var(--brand-card) / <alpha-value>)',
+              cardHover: 'rgb(var(--brand-card-hover) / <alpha-value>)',
+              border: 'rgb(var(--brand-border) / <alpha-value>)',
+              borderHover: 'rgb(var(--brand-border-hover) / <alpha-value>)',
+              accent: '#38bdf8'
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+    :root {
+      --brand-bg: 246 247 249;
+      --brand-card: 255 255 255;
+      --brand-card-hover: 241 243 246;
+      --brand-border: 226 229 234;
+      --brand-border-hover: 203 208 216;
+      --brand-fg: 15 23 42;
+    }
+
+    html.dark {
+      --brand-bg: 13 13 15;
+      --brand-card: 20 20 23;
+      --brand-card-hover: 28 28 32;
+      --brand-border: 40 40 46;
+      --brand-border-hover: 60 60 68;
+      --brand-fg: 244 244 246;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: rgb(var(--brand-bg));
+      color: rgb(var(--brand-fg));
+      letter-spacing: -0.015em;
+      transition: background-color 0.2s ease, border-color 0.2s ease;
+    }
+
+    .font-num {
+      font-variant-numeric: tabular-nums;
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: rgb(var(--brand-bg));
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgb(var(--brand-border));
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgb(var(--brand-border-hover));
+    }
+  </style>
+</head>
+
+<body class="min-h-screen flex flex-col selection:bg-neutral-500 selection:text-black">
+
+  <!-- Header Section -->
+  <header class="border-b border-brand-border bg-brand-bg/80 backdrop-blur-md sticky top-0 z-50">
+    <div
+      class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div class="flex items-center gap-3">
+
+        <button id="theme-toggle"
+          class="p-1.5 rounded-lg border border-brand-border bg-brand-card hover:bg-brand-cardHover text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors flex items-center justify-center cursor-pointer shadow-sm"
+          aria-label="테마 전환" title="Dark/Light 테마 전환">
+          <i id="theme-icon" data-lucide="moon" class="w-4 h-4 text-sky-300"></i>
+        </button>
+
+        <div>
+          <h1 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2.5">
+            Mini Quant
+
+          </h1>
+          <p class="text-xs text-slate-500 dark:text-slate-400 font-mono mt-0.5">Quant &amp; Finance
+            Artifacts</p>
+        </div>
+      </div>
+
+      <!-- Quick Metrics Counter -->
+      <div class="flex items-center gap-2 sm:gap-3 text-xs font-mono">
+        <div class="px-3 py-1.5 rounded-md bg-brand-card border border-brand-border flex items-center gap-2">
+          <span class="text-slate-500 dark:text-slate-400">Total:</span>
+          <span id="counter-total" class="font-bold text-slate-900 dark:text-white font-num">0</span>
+        </div>
+        <div
+          class="px-3 py-1.5 rounded-md bg-sky-500/10 border border-sky-500/20 text-sky-600 dark:text-sky-400 flex items-center gap-2">
+          <span>Tools:</span>
+          <span id="counter-tools" class="font-bold font-num">0</span>
+        </div>
+        <div
+          class="px-3 py-1.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
+          <span>Strategy:</span>
+          <span id="counter-strategy" class="font-bold font-num">0</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Controls Section -->
+  <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-8 pb-3 sm:pb-4 w-full">
+    <div class="flex flex-col md:flex-row gap-3 sm:gap-4 items-stretch md:items-center justify-between">
+      <div
+        class="flex flex-wrap gap-1.5 sm:gap-2 p-1 bg-brand-card rounded-lg border border-brand-border w-full md:w-auto"
+        id="filter-tabs">
+        <button data-filter="all"
+          class="filter-btn px-3 sm:px-4 py-2 rounded-md text-xs font-medium transition-all text-center justify-center flex items-center bg-sky-300 text-slate-950 font-bold shadow-sm">
+          All
+        </button>
+        <button data-filter="tools"
+          class="filter-btn px-3 sm:px-4 py-2 rounded-md text-xs font-medium transition-all text-center justify-center flex items-center text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+          Tools
+        </button>
+        <button data-filter="strategy"
+          class="filter-btn px-3 sm:px-4 py-2 rounded-md text-xs font-medium transition-all text-center justify-center flex items-center text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+          Strategy
+        </button>
+      </div>
+
+      <!-- Realtime Search Input -->
+      <div class="relative w-full md:w-80">
+        <i data-lucide="search"
+          class="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+        <input type="text" id="search-input" placeholder="검색 (폴더명, 제목, 기술 스택)..."
+          class="w-full bg-brand-card border border-brand-border rounded-lg pl-10 pr-4 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-sky-500 transition-colors font-mono shadow-sm" />
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Grid Section -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full flex-1">
+    <div id="artifacts-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5"></div>
+
+    <!-- Empty State -->
+    <div id="empty-state" class="hidden text-center py-20">
+      <div class="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center mx-auto text-slate-500 mb-3">
+        <i data-lucide="inbox" class="w-6 h-6"></i>
+      </div>
+      <p class="text-slate-400 text-sm">일치하는 서브프로젝트가 없습니다.</p>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-brand-border py-6 mt-12 bg-brand-bg text-center text-xs text-slate-500 font-mono">
+    <div class="max-w-7xl mx-auto px-4">
+      Mini Quant SFA Hub | 삼순동순기술
+    </div>
+  </footer>
+
+  <script>
+    const ARTIFACTS = [
+      {
+        slug: "calculator-rrr",
+        title: "Pre-Trading RRR Calculator",
+        desc: "빌드 없이 단일 HTML 파일로 실행되는 매매 전 평단가·목표손익비(Risk/Reward Ratio) 계산기.",
+        htmlFile: "calculator-rrr/index.html",
+        mdFile: "calculator-rrr/README.md",
+        screenImg: "calculator-rrr/screen.jpg",
+        tech: ["Vanilla JS", "HTML5", "CSS3"]
+      },
+      {
+        slug: "calculator-rrr-scenario",
+        title: "Expected RRR Calculator",
+        desc: "거시(Macro)·미시(Micro) 이분 확률을 조합해 4-State 기대수익률, 가중 손익비, 최적 켈리 비중을 산출하는 시나리오 시뮬레이터.",
+        htmlFile: "calculator-rrr-scenario/index.html",
+        mdFile: "calculator-rrr-scenario/README.md",
+        screenImg: "calculator-rrr-scenario/screen.jpg",
+        tech: ["Vanilla JS", "Chart.js", "UnoCSS"]
+      },
+      {
+        slug: "deribit-option-analyzer",
+        title: "Deribit Option Analyzer",
+        desc: "Deribit 옵션 체인의 가격 곡률, 콜-풋 내재변동성 스큐 및 스마일 비대칭성을 분석하는 대시보드.",
+        htmlFile: "deribit-option-analyzer/index.html",
+        mdFile: "deribit-option-analyzer/README.md",
+        screenImg: "deribit-option-analyzer/screen.jpg",
+        tech: ["Deribit", "Vanilla JS", "Chart.js"]
+      },
+      {
+        slug: "sec-edgar-7bigtechs",
+        title: "FCF Margin Estimator (7 BigTech)",
+        desc: "SEC EDGAR 10-K 공시 원본 데이터를 기반으로 SBC, 금융리스, 서버 내용연수 왜곡, 순환금융을 조정한 빅테크 실질 FCF 마진 계산기.",
+        htmlFile: "sec-edgar-7bigtechs/index.html",
+        mdFile: "sec-edgar-7bigtechs/README.md",
+        screenImg: "sec-edgar-7bigtechs/screen.jpg",
+        tech: ["SEC EDGAR", "Vanilla JS", "Chart.js"]
+      },
+      {
+        slug: "strategy-global-all-weather",
+        title: "Global All-Weather 3-Class Attribution",
+        desc: "글로벌 3자산군 올웨더 포트폴리오 백테스트 및 성과 귀속(Attribution) 리포트 생성 연구 프로젝트.",
+        htmlFile: "https://colab.research.google.com/drive/1GQJjOyvut7eKA7b5kAyjZKiGuBrmN3Lm?usp=sharing",
+        mdFile: "#",
+        screenImg: "strategy-global-all-weather/screen.jpg",
+        tech: ["Colab", "ETF", "Backtest"]
+      },
+      {
+        slug: "strategy-kr-intraday",
+        title: "KR Intraday Lead-Lag Model",
+        desc: "국내 증시 장중 시계열 데이터를 활용한 선행-후행(Lead-Lag) 단기 알파 모델 실험 스크립트.",
+        htmlFile: "https://colab.research.google.com/drive/1Go20XxQNaLY5rkx2n6bU9D5kWcE5Fz1_?usp=sharing",
+        mdFile: "#",
+        screenImg: "strategy-kr-intraday/screen.jpg",
+        tech: ["Colab", "Intraday", "Lead-Lag"]
+      },
+      {
+        slug: "strategy-pinescript",
+        title: "TradingView PineScript Cookbook",
+        desc: "TradingView 무료 플랜 지표 개수 제한을 우회하기 위해 여러 보조지표와 전략 로직을 하나로 통합한 Pine Script v6 레시피 모음.",
+        htmlFile: "strategy-pinescript/index.html",
+        mdFile: "strategy-pinescript/README.md",
+        screenImg: "strategy-pinescript/screen.jpg",
+        tech: ["TW Pine Script", "Vanilla JS"]
+      },
+      {
+        slug: "tw-widget",
+        title: "TradingView Multi-Chart SFA",
+        desc: "별도 빌드나 서버 없이 브라우저로 열어 TradingView 위젯을 다중 분할 화면으로 모니터링하는 초경량 단일 파일 웹앱.",
+        htmlFile: "tw-widget/index.html",
+        mdFile: "tw-widget/README.md",
+        screenImg: "tw-widget/screen.jpg",
+        tech: ["TW Widget", "Vanilla JS", "HTML5"]
+      }
+    ];
+
+    let currentFilter = "all";
+    let searchQuery = "";
+
+    function renderCounters() {
+      const strategyCount = ARTIFACTS.filter(a => a.slug.startsWith("strategy-")).length;
+      document.getElementById("counter-total").textContent = ARTIFACTS.length;
+      document.getElementById("counter-tools").textContent = ARTIFACTS.length - strategyCount;
+      document.getElementById("counter-strategy").textContent = strategyCount;
+    }
+
+    function renderArtifacts() {
+      const grid = document.getElementById("artifacts-grid");
+      const emptyState = document.getElementById("empty-state");
+
+      const filtered = ARTIFACTS.filter(item => {
+        const isStrategy = item.slug.startsWith("strategy-");
+        const matchFilter =
+          (currentFilter === "all") ||
+          (currentFilter === "tools" && !isStrategy) ||
+          (currentFilter === "strategy" && isStrategy);
+        const query = searchQuery.toLowerCase().trim();
+        const matchSearch = !query ||
+          item.title.toLowerCase().includes(query) ||
+          item.desc.toLowerCase().includes(query) ||
+          item.slug.toLowerCase().includes(query) ||
+          item.tech.some(t => t.toLowerCase().includes(query));
+
+        return matchFilter && matchSearch;
+      });
+
+      if (filtered.length === 0) {
+        grid.innerHTML = "";
+        emptyState.classList.remove("hidden");
+        return;
+      }
+
+      emptyState.classList.add("hidden");
+      grid.innerHTML = filtered.map(item => {
+        const isLive = item.htmlFile !== "#";
+        const isExternal = item.htmlFile.startsWith("http");
+        const linkAttrs = isExternal ? 'target="_blank" rel="noopener noreferrer"' : '';
+        const hasMd = item.mdFile !== "#";
+        const isStrategy = item.slug.startsWith("strategy-");
+        return `
+          <article class="bg-brand-card hover:bg-brand-cardHover border border-brand-border hover:border-brand-borderHover rounded-xl overflow-hidden transition-all duration-200 flex flex-col justify-between group shadow-sm hover:shadow-md">
+            <div>
+              <!-- Preview Image -->
+              <a href="${item.htmlFile}" ${linkAttrs} class="block relative aspect-video bg-slate-900/50 border-b border-brand-border overflow-hidden ${isLive ? '' : 'cursor-default'}">
+                <img
+                  src="${item.screenImg}"
+                  alt="${item.slug} preview"
+                  loading="lazy"
+                  class="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
+                  onerror="this.style.display='none'"
+                />
+                <span class="absolute top-2.5 right-2.5 text-[10px] font-mono px-2 py-0.5 rounded backdrop-blur-md ${isStrategy ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/30' : 'bg-sky-500/20 text-sky-300 border border-sky-400/30'}">
+                  ${isExternal ? 'COLAB' : (isStrategy ? 'STRATEGY' : 'TOOL')}
+                </span>
+              </a>
+
+
+              <div class="p-5 pb-3">
+                <!-- Slug Badge -->
+                <div class="flex items-center justify-between gap-2 mb-2.5">
+                  <span class="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700/60 truncate">
+                    ${item.slug}
+                  </span>
+                </div>
+
+                <!-- Title -->
+                <h2 class="text-base font-bold text-slate-900 dark:text-white group-hover:text-sky-500 dark:group-hover:text-sky-300 transition-colors tracking-tight line-clamp-2 mb-2">
+                  <a href="${item.htmlFile}" ${linkAttrs} class="focus:outline-none">
+                    ${item.title}
+                  </a>
+                </h2>
+
+                <!-- Description -->
+                <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed line-clamp-3 mb-4">
+                  ${item.desc}
+                </p>
+
+                <!-- Tech Badges -->
+                <div class="flex flex-wrap gap-1.5">
+                  ${item.tech.map(t => `<span class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700/50">${t}</span>`).join('')}
+                </div>
+              </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="px-5 py-3.5 mt-2 border-t border-brand-border/60 flex items-center justify-between gap-3">
+              <a
+                href="${item.mdFile}"
+                class="text-xs font-mono flex items-center gap-1.5 transition-colors py-1.5 px-2.5 rounded ${hasMd ? 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800' : 'text-slate-400/50 dark:text-slate-600 cursor-default'}"
+                title="${hasMd ? 'README.md 보기' : '문서 준비 중'}"
+              >
+                <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+                <span>README.md</span>
+              </a>
+
+              <a
+                href="${item.htmlFile}"
+                ${linkAttrs}
+                class="text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${isLive ? 'bg-sky-300 hover:bg-sky-400 text-slate-950 shadow hover:shadow-sky-500/25' : 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 cursor-default'}"
+              >
+                <span>${isExternal ? 'Colab' : (isLive ? 'Launch' : 'No Index')}</span>
+                <i data-lucide="${isLive ? 'arrow-up-right' : 'minus'}" class="w-3.5 h-3.5"></i>
+              </a>
+            </div>
+          </article>
+        `;
+      }).join('');
+
+      lucide.createIcons();
+    }
+
+    function updateThemeUI() {
+      const isDark = document.documentElement.classList.contains("dark");
+      const toggleBtn = document.getElementById("theme-toggle");
+      if (!toggleBtn) return;
+      toggleBtn.innerHTML = isDark
+        ? '<i id="theme-icon" data-lucide="moon" class="w-4 h-4 text-sky-300"></i>'
+        : '<i id="theme-icon" data-lucide="sun" class="w-4 h-4 text-amber-500"></i>';
+      toggleBtn.setAttribute("title", isDark ? "Light 테마로 전환" : "Dark 테마로 전환");
+      lucide.createIcons();
+    }
+
+    function toggleTheme() {
+      const isDark = document.documentElement.classList.contains("dark");
+      if (isDark) {
+        document.documentElement.classList.remove("dark");
+        localStorage.setItem("theme", "light");
+      } else {
+        document.documentElement.classList.add("dark");
+        localStorage.setItem("theme", "dark");
+      }
+      updateThemeUI();
+    }
+
+    document.getElementById("theme-toggle").addEventListener("click", toggleTheme);
+
+    document.querySelectorAll(".filter-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".filter-btn").forEach(b => {
+          b.className = "filter-btn px-3 sm:px-4 py-2 rounded-md text-xs font-medium transition-all text-center justify-center flex items-center text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white";
+        });
+        btn.className = "filter-btn px-3 sm:px-4 py-2 rounded-md text-xs font-medium transition-all text-center justify-center flex items-center bg-sky-300 text-slate-950 font-bold shadow-sm";
+        currentFilter = btn.dataset.filter;
+        renderArtifacts();
+      });
+    });
+
+    document.getElementById("search-input").addEventListener("input", (e) => {
+      searchQuery = e.target.value;
+      renderArtifacts();
+    });
+
+    renderCounters();
+    renderArtifacts();
+    updateThemeUI();
+  </script>
+</body>
+
+</html>
