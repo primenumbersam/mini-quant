@@ -1,9 +1,4 @@
-목적: 100% Client-Side Computing: 퀀트용 마이크로 툴킷
-
-미국 주식/암호화폐 현재가 조회 
-
-제약: Rust 언어를 사용해서 단일 바이너리로 패키징되는 크로스 OS 웹 앱. directory structure 는 최대한 flatten.
-
+## 계량적 투자용 미니 도구: 100% Client-Side Computing
 
 ### Tech Stack
 
